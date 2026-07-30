@@ -1,0 +1,30 @@
+.DS_Store
+.idea/
+.vscode/
+*.log
+.env
+.env.*
+!.env.example
+
+# Java
+target/
+*.class
+
+# Node
+node_modules/
+dist/
+
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+crash.log
+
+# Docker
+docker-data/
+
+# Secrets
+*.pem
+*.key
+secrets/
