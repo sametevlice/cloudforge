@@ -1,0 +1,24 @@
+sequenceDiagram
+    actor Developer
+    participant GitHub
+    participant GHA as GitHub Actions
+    participant ECR as Amazon ECR
+    participant CF as CloudForge API
+    participant Jenkins
+    participant ECS as Amazon ECS
+    participant ALB
+    participant Prom as Prometheus
+
+    Developer->>GitHub: Push commit
+    GitHub->>GHA: Start CI
+    GHA->>GHA: Test, build and scan
+    GHA->>ECR: Push image
+    GHA->>CF: Report build
+    CF->>Jenkins: Start deployment
+    Jenkins->>ECS: Deploy staging
+    Jenkins->>ECS: Health and smoke tests
+    Jenkins->>ECS: Create green revision
+    Jenkins->>ALB: Switch traffic
+    Jenkins->>Prom: Query metrics
+    Prom-->>Jenkins: Healthy or threshold violation
+    Jenkins->>CF: Report success or rollback
