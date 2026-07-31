@@ -4,7 +4,24 @@ CloudForge; GitHub üzerindeki uygulamaların otomatik olarak test edilmesini, D
 
 ## Proje durumu
 
-**Aşama 0 — Proje Organizasyonu**
+**Aşama 1 — Gereksinim Analizi**
+
+Tamamlanan çalışmalar:
+
+- Proje tanımı
+- Problem tanımı
+- Proje kapsamı
+- Fonksiyonel gereksinimler
+- Fonksiyonel olmayan gereksinimler
+- User stories
+- Use case kataloğu
+- Requirements traceability matrix
+
+Sıradaki çalışmalar:
+
+- Ana sistem mimarisi
+- AWS network mimarisi
+- CI/CD akış diyagramı
 
 ## Temel hedef
 
@@ -59,6 +76,11 @@ Bu başlangıç repository'si proje organizasyonu ve dokümantasyon iskeletini i
 - [GitHub issue listesi](docs/github-issues.md)
 - [ADR-001: ECS Fargate seçimi](docs/adr/ADR-001-ecs-fargate.md)
 - [ADR-002: GitHub Actions ve Jenkins ayrımı](docs/adr/ADR-002-ci-cd-separation.md)
+- [Functional Requirements](docs/requirements/functional-requirements.md)
+- [Non-Functional Requirements](docs/requirements/non-functional-requirements.md)
+- [User Stories](docs/requirements/user-stories.md)
+- [Use Case Catalog](docs/use-cases/use-case-catalog.md)
+- [Requirements Traceability Matrix](docs/requirements/traceability-matrix.md)
 
 ## Akademik ve yayın hedefi
 
