@@ -1,0 +1,26 @@
+digraph DevNetwork {
+  graph [rankdir=TB, fontname="Arial", nodesep=0.5, ranksep=0.7];
+  node [shape=box, fontname="Arial", margin="0.14,0.08"];
+  edge [fontname="Arial"];
+  internet [label="Internet", shape=ellipse];
+  igw [label="Internet Gateway"];
+  subgraph cluster_vpc {
+    label="Cost-saving Development VPC";
+    subgraph cluster_public {
+      label="Two Public Subnets / Two AZs";
+      alb [label="Internet-facing ALB"];
+      ecs [label="ECS Fargate Tasks
+Public IP enabled
+Inbound only from ALB SG"];
+    }
+    subgraph cluster_private {
+      label="Private Data Subnets / Two AZs";
+      rds [label="RDS PostgreSQL
+No public access", shape=cylinder];
+    }
+  }
+  internet -> igw -> alb;
+  alb -> ecs [label="8080"];
+  ecs -> internet [label="Outbound via public IP"];
+  ecs -> rds [label="5432"];
+}

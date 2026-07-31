@@ -1,0 +1,52 @@
+digraph AWSNetwork {
+  graph [rankdir=TB, compound=true, fontname="Arial", nodesep=0.45, ranksep=0.65];
+  node [shape=box, fontname="Arial", margin="0.14,0.08"];
+  edge [fontname="Arial"];
+  users [label="Application Users", shape=ellipse];
+  internet [label="Internet", shape=ellipse];
+  igw [label="Internet Gateway"];
+  subgraph cluster_vpc {
+    label="CloudForge VPC 10.20.0.0/16";
+    alb [label="Internet-facing ALB
+HTTPS 443"];
+    subgraph cluster_aza {
+      label="Availability Zone A";
+      pub_a [label="Public A
+10.20.0.0/24"];
+      nat_a [label="NAT Gateway A"];
+      app_a [label="Private App A
+10.20.10.0/24"];
+      data_a [label="Private Data A
+10.20.20.0/24"];
+      mgmt_a [label="Private Management A
+10.20.30.0/24"];
+    }
+    subgraph cluster_azb {
+      label="Availability Zone B";
+      pub_b [label="Public B
+10.20.1.0/24"];
+      nat_b [label="NAT Gateway B"];
+      app_b [label="Private App B
+10.20.11.0/24"];
+      data_b [label="Private Data B
+10.20.21.0/24"];
+      mgmt_b [label="Private Management B
+10.20.31.0/24"];
+    }
+    ecs [label="ECS Fargate Services
+No public IP"];
+    rds [label="RDS PostgreSQL
+Publicly accessible: false", shape=cylinder];
+    jenkins [label="Jenkins / Monitoring"];
+  }
+  users -> internet -> igw -> alb;
+  alb -> ecs [label="ALB SG → ECS SG"];
+  ecs -> rds [label="5432
+ECS SG → RDS SG"];
+  pub_a -> nat_a; pub_b -> nat_b;
+  app_a -> ecs; app_b -> ecs;
+  data_a -> rds; data_b -> rds;
+  mgmt_a -> jenkins; mgmt_b -> jenkins;
+  ecs -> nat_a [label="AZ A outbound"];
+  ecs -> nat_b [label="AZ B outbound"];
+}

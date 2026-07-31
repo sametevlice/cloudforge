@@ -1,0 +1,11 @@
+flowchart TB
+  Internet((Internet)) --> IGW[Internet Gateway]
+  subgraph VPC[Cost-saving Development VPC]
+    ALB[Internet-facing ALB]
+    ECS[ECS Fargate with public IP]
+    RDS[(Private RDS PostgreSQL)]
+  end
+  IGW --> ALB
+  ALB --> ECS
+  ECS --> RDS
+  ECS --> Internet

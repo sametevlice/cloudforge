@@ -1,0 +1,24 @@
+flowchart TB
+  Internet((Internet)) --> IGW[Internet Gateway]
+  subgraph VPC[CloudForge VPC 10.20.0.0/16]
+    ALB[Internet-facing ALB]
+    subgraph AZA[AZ A]
+      PubA[Public A]
+      NatA[NAT A]
+      AppA[Private App A]
+      DataA[Private Data A]
+    end
+    subgraph AZB[AZ B]
+      PubB[Public B]
+      NatB[NAT B]
+      AppB[Private App B]
+      DataB[Private Data B]
+    end
+    ECS[ECS Fargate]
+    RDS[(RDS PostgreSQL)]
+  end
+  IGW --> ALB
+  ALB --> ECS
+  ECS --> RDS
+  AppA --> NatA
+  AppB --> NatB
