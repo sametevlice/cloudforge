@@ -28,13 +28,16 @@ Bu proje, AWS üzerinde Infrastructure as Code, CI/CD, container orchestration, 
 * [x] Deployment sequence
 * [x] Trust boundaries
 * [x] Main architecture decisions
+* [x] AWS network architecture
+* [x] Detailed CI/CD architecture
+* [x] Database ER diagram
+* [x] Git branching strategy
 
 ### In Progress
 
-* [ ] AWS network architecture
-* [ ] Detailed CI/CD architecture
-* [ ] Database ER diagram
-* [ ] Git branching strategy
+- [ ] Detailed CI/CD architecture
+- [ ] Database ER diagram
+- [ ] Git branching strategy
 
 ### Next Phase
 
@@ -485,6 +488,16 @@ Bu repository, CloudForge projesinin merkezi dokümantasyon ve planlama alanıd�
 * [ADR-002: Separate CI and CD Responsibilities](docs/adr/ADR-002-ci-cd-separation.md)
 * [ADR-003: Use Modular Monolith Backend](docs/adr/ADR-003-modular-monolith-backend.md)
 
+### AWS Network Architecture
+
+- [AWS Network Architecture](docs/architecture/aws-network-architecture.md)
+- [Subnet and IP Plan](docs/architecture/subnet-ip-plan.md)
+- [Route Table Design](docs/architecture/route-table-design.md)
+- [Security Group Design](docs/architecture/security-group-design.md)
+- [Network Profiles](docs/architecture/network-profiles.md)
+- [Network Validation Checklist](docs/architecture/network-validation-checklist.md)
+- [ADR-004: Multi-AZ Network](docs/adr/ADR-004-multi-az-network.md)
+- [ADR-005: Network Cost Profiles](docs/adr/ADR-005-network-cost-profiles.md)
 ---
 
 ## Project Roadmap
