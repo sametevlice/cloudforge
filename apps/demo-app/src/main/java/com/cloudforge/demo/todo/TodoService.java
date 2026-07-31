@@ -1,5 +1,6 @@
 package com.cloudforge.demo.todo;
 
+import com.cloudforge.demo.metrics.TodoMetrics;
 import com.cloudforge.demo.todo.api.CreateTodoRequest;
 import com.cloudforge.demo.todo.api.TodoResponse;
 import com.cloudforge.demo.todo.api.UpdateTodoRequest;
@@ -15,9 +16,11 @@ import java.util.UUID;
 public class TodoService {
 
     private final TodoRepository repository;
+    private final TodoMetrics metrics;
 
-    public TodoService(TodoRepository repository) {
+    public TodoService(TodoRepository repository, TodoMetrics metrics) {
         this.repository = repository;
+        this.metrics = metrics;
     }
 
     public List<TodoResponse> findAll() {
@@ -38,16 +41,24 @@ public class TodoService {
                 normalizeDescription(request.description()),
                 TodoStatus.PENDING
         );
-
-        return TodoResponse.from(repository.save(todo));
+        Todo savedTodo = repository.save(todo);
+        metrics.recordCreated();
+        return TodoResponse.from(savedTodo);
     }
 
     @Transactional
     public TodoResponse update(UUID id, UpdateTodoRequest request) {
         Todo todo = getTodo(id);
+        TodoStatus previousStatus = todo.getStatus();
+
         todo.setTitle(request.title().trim());
         todo.setDescription(normalizeDescription(request.description()));
         todo.setStatus(request.status());
+
+        metrics.recordUpdated();
+        if (previousStatus != TodoStatus.COMPLETED && request.status() == TodoStatus.COMPLETED) {
+            metrics.recordCompleted();
+        }
 
         return TodoResponse.from(todo);
     }
@@ -56,6 +67,7 @@ public class TodoService {
     public void delete(UUID id) {
         Todo todo = getTodo(id);
         repository.delete(todo);
+        metrics.recordDeleted();
     }
 
     private Todo getTodo(UUID id) {
@@ -67,7 +79,6 @@ public class TodoService {
         if (description == null || description.isBlank()) {
             return null;
         }
-
         return description.trim();
     }
 }
