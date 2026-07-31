@@ -2,21 +2,31 @@ name: Demo Application CI
 
 on:
   pull_request:
+    paths:
+      - "apps/demo-app/**"
+      - ".github/workflows/demo-app-ci.yml"
+
   push:
     branches:
       - main
-      - develop
+    paths:
+      - "apps/demo-app/**"
+      - ".github/workflows/demo-app-ci.yml"
 
 permissions:
   contents: read
 
+defaults:
+  run:
+    working-directory: apps/demo-app
+
 jobs:
   test:
-    name: Test with Java 21
+    name: Test Demo Application
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout source
+      - name: Checkout source code
         uses: actions/checkout@v4
 
       - name: Set up Java 21
@@ -25,18 +35,27 @@ jobs:
           distribution: temurin
           java-version: "21"
           cache: maven
+          cache-dependency-path: apps/demo-app/pom.xml
 
-      - name: Run tests
-        run: mvn --batch-mode --update-snapshots verify
+      - name: Run Maven tests
+        run: mvn --batch-mode clean verify
 
   docker:
-    name: Build Docker image
+    name: Build Demo Application Image
     runs-on: ubuntu-latest
     needs: test
 
     steps:
-      - name: Checkout source
+      - name: Checkout source code
         uses: actions/checkout@v4
 
-      - name: Build image
+      - name: Build Docker image
         run: docker build --tag cloudforge-demo-app:${{ github.sha }} .
+
+
+	
+
+
+
+
+
