@@ -1,0 +1,29 @@
+digraph Deployment {
+    graph [rankdir=LR, fontname="Arial", nodesep=0.5, ranksep=0.8];
+    node [shape=box, fontname="Arial", margin="0.15,0.08"];
+    edge [fontname="Arial"];
+
+    push [label="Developer Push"];
+    ci [label="GitHub Actions\nTest + Build + Scan"];
+    ecr [label="Amazon ECR"];
+    cf [label="CloudForge API"];
+    staging [label="Jenkins\nStaging Deployment"];
+    verify [label="Health + Smoke Tests", shape=diamond];
+    green [label="Green Production Revision"];
+    traffic [label="ALB Traffic Switch"];
+    metrics [label="Prometheus Verification", shape=diamond];
+    success [label="Deployment Successful"];
+    rollback [label="Rollback to Blue"];
+
+    push -> ci;
+    ci -> ecr [label="success"];
+    ecr -> cf [label="image metadata"];
+    cf -> staging;
+    staging -> verify;
+    verify -> green [label="pass"];
+    verify -> rollback [label="fail"];
+    green -> traffic;
+    traffic -> metrics;
+    metrics -> success [label="healthy"];
+    metrics -> rollback [label="threshold violated"];
+}

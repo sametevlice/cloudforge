@@ -1,0 +1,27 @@
+flowchart LR
+    U[Platform User] --> FE[React Frontend]
+    A[Administrator] --> FE
+    subgraph ControlPlane[CloudForge Control Plane]
+        FE --> API[Spring Boot Backend]
+        API --> DB[(PostgreSQL)]
+        API --> J[Jenkins]
+        API --> SM[AWS Secrets Manager]
+        API --> CW[AWS CloudWatch]
+        API --> GF[Grafana]
+    end
+    subgraph SourceAndCI[Source Control and CI]
+        GH[GitHub Repository] --> GA[GitHub Actions]
+        GA --> ECR[Amazon ECR]
+        GA --> API
+    end
+    subgraph WorkloadPlane[AWS Workload Plane]
+        J --> ECS[Amazon ECS Fargate]
+        ECR --> ECS
+        ALB[Application Load Balancer] --> ECS
+        ECS --> RDS[(Amazon RDS PostgreSQL)]
+        ECS --> CW
+    end
+    Internet[Application Users] --> ALB
+    ECS --> PROM[Prometheus]
+    PROM --> GF
+    J --> API
