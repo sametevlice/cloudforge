@@ -1,0 +1,45 @@
+server:
+  port: ${SERVER_PORT:8080}
+  shutdown: graceful
+
+spring:
+  application:
+    name: cloudforge-demo-app
+  datasource:
+    url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/cloudforge_demo}
+    username: ${DATABASE_USERNAME:cloudforge}
+    password: ${DATABASE_PASSWORD:cloudforge}
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
+  flyway:
+    enabled: true
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      show-details: always
+  metrics:
+    tags:
+      application: ${spring.application.name}
+
+info:
+  app:
+    name: ${spring.application.name}
+    version: ${APP_VERSION:development}
+    commit: ${GIT_COMMIT:local}
+
+cloudforge:
+  application-version: ${APP_VERSION:development}
+  git-commit: ${GIT_COMMIT:local}
