@@ -1,0 +1,12 @@
+.DS_Store
+.idea/
+.vscode/
+target/
+*.log
+
+.env
+.env.*
+!.env.example
+
+docker-data/
+docker-compose.backup.yml

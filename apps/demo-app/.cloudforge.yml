@@ -1,0 +1,20 @@
+version: 1
+
+application:
+  name: cloudforge-demo-app
+  port: 8080
+  healthPath: /actuator/health
+  metricsPath: /actuator/prometheus
+
+build:
+  dockerfile: Dockerfile
+  context: .
+
+deployment:
+  cpu: 512
+  memory: 1024
+  minimumTasks: 1
+  maximumTasks: 4
+
+environment:
+  default: staging
