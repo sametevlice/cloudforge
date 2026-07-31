@@ -1,0 +1,58 @@
+digraph CloudForge {
+    graph [rankdir=LR, compound=true, fontname="Arial", nodesep=0.55, ranksep=0.8];
+    node [shape=box, fontname="Arial", margin="0.15,0.08"];
+    edge [fontname="Arial"];
+
+    user [label="Platform User"];
+    admin [label="Administrator"];
+    appuser [label="Application User"];
+
+    subgraph cluster_control {
+        label="CloudForge Control Plane";
+        frontend [label="React Frontend"];
+        backend [label="Spring Boot Backend\n(Modular Monolith)"];
+        platformdb [label="CloudForge PostgreSQL", shape=cylinder];
+        jenkins [label="Jenkins"];
+        secrets [label="AWS Secrets Manager"];
+        grafana [label="Grafana"];
+        cloudwatch [label="CloudWatch Logs"];
+    }
+
+    subgraph cluster_ci {
+        label="Source Control and CI";
+        github [label="GitHub Repository"];
+        actions [label="GitHub Actions"];
+        ecr [label="Amazon ECR"];
+    }
+
+    subgraph cluster_workload {
+        label="AWS Workload Plane";
+        alb [label="Application Load Balancer"];
+        ecs [label="Amazon ECS Fargate"];
+        appdb [label="Application RDS PostgreSQL", shape=cylinder];
+        prometheus [label="Prometheus"];
+    }
+
+    user -> frontend;
+    admin -> frontend;
+    frontend -> backend [label="REST API"];
+    backend -> platformdb;
+    backend -> jenkins;
+    backend -> secrets;
+    backend -> grafana;
+    backend -> cloudwatch;
+
+    github -> actions [label="push / pull request"];
+    actions -> ecr [label="Docker image"];
+    actions -> backend [label="CI result"];
+
+    jenkins -> ecs [label="deploy / rollback"];
+    ecr -> ecs [label="pull image"];
+    appuser -> alb [label="HTTPS"];
+    alb -> ecs;
+    ecs -> appdb;
+    ecs -> prometheus [label="metrics"];
+    prometheus -> grafana;
+    ecs -> cloudwatch [label="logs"];
+    jenkins -> backend [label="deployment result"];
+}
