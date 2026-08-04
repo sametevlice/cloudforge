@@ -1,7 +1,3 @@
-output "demo_ecr_repository_url" {
-  value = module.demo_ecr.repository_url
-}
-
 output "demo_application_url" {
   value = try(module.demo_runtime[0].application_url, null)
 }
