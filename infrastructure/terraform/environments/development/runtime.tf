@@ -1,11 +1,3 @@
-module "demo_ecr" {
-  source = "../../modules/ecr"
-
-  project_name    = var.project_name
-  environment     = var.environment
-  repository_name = "${var.project_name}-demo-app"
-}
-
 module "demo_runtime" {
   count  = var.enable_runtime_foundation ? 1 : 0
   source = "../../modules/demo-runtime"
