@@ -6,6 +6,7 @@ module "github_actions_ecr" {
 
   github_repository = var.github_repository
   github_branch     = "main"
+  github_subject    = var.github_oidc_subject
 
   ecr_repository_arn = module.demo_ecr.repository_arn
 

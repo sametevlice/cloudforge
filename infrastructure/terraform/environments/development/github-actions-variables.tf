@@ -9,3 +9,8 @@ variable "create_github_oidc_provider" {
   type        = bool
   default     = true
 }
+
+variable "github_oidc_subject" {
+  description = "GitHub repository immutable OIDC subject claim."
+  type        = string
+}
