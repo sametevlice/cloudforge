@@ -29,3 +29,8 @@ variable "create_oidc_provider" {
   type        = bool
   default     = true
 }
+
+variable "github_subject" {
+  description = "GitHub Actions OIDC token içerisindeki exact subject claim."
+  type        = string
+}
