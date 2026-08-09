@@ -1,0 +1,116 @@
+pipeline {
+    agent any
+
+    options {
+        timestamps()
+        disableConcurrentBuilds()
+
+        timeout(
+            time: 20,
+            unit: 'MINUTES'
+        )
+    }
+
+    triggers {
+        pollSCM('H/2 * * * *')
+    }
+
+    environment {
+        AWS_PROFILE = 'cloudforge'
+        AWS_REGION = 'eu-central-1'
+
+        ECS_CLUSTER = 'cloudforge-development-cluster'
+        ECS_SERVICE = 'cloudforge-development-demo-app'
+
+        ECR_REPOSITORY = 'cloudforge-demo-app'
+    }
+
+    stages {
+
+        stage('Checkout') {
+            steps {
+                checkout scm
+
+                script {
+                    env.IMAGE_TAG = sh(
+                        script: 'git rev-parse HEAD',
+                        returnStdout: true
+                    ).trim()
+                }
+
+                echo "Git commit: ${env.IMAGE_TAG}"
+            }
+        }
+
+        stage('AWS Preflight') {
+            steps {
+                sh '''
+                    set -e
+
+                    aws sts get-caller-identity
+
+                    aws ecs describe-services \
+                      --cluster "$ECS_CLUSTER" \
+                      --services "$ECS_SERVICE" \
+                      --region "$AWS_REGION" \
+                      --query 'services[0].status' \
+                      --output text
+                '''
+            }
+        }
+
+        stage('Wait for ECR Image') {
+            steps {
+                sh '''
+                    set -e
+
+                    echo "ECR image bekleniyor: $IMAGE_TAG"
+
+                    for attempt in $(seq 1 30); do
+
+                      if aws ecr describe-images \
+                        --repository-name "$ECR_REPOSITORY" \
+                        --image-ids imageTag="$IMAGE_TAG" \
+                        --region "$AWS_REGION" \
+                        >/dev/null 2>&1
+                      then
+                        echo "ECR image bulundu."
+                        exit 0
+                      fi
+
+                      echo "Henüz image yok. Deneme: $attempt/30"
+
+                      sleep 10
+                    done
+
+                    echo "ECR image zamanında bulunamadı."
+                    exit 1
+                '''
+            }
+        }
+
+        stage('Deploy to Development') {
+            steps {
+                sh '''
+                    ./infrastructure/jenkins/scripts/deploy-ecs.sh \
+                      "$IMAGE_TAG"
+                '''
+            }
+        }
+    }
+
+    post {
+
+        success {
+            echo 'CloudForge development deployment başarılı.'
+        }
+
+        failure {
+            echo 'CloudForge development deployment başarısız.'
+        }
+
+        always {
+            echo "Pipeline sonucu: ${currentBuild.currentResult}"
+        }
+    }
+}
