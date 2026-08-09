@@ -1,101 +1,102 @@
 variable "project_name" {
-  type        = string
   description = "CloudForge proje adı."
+  type        = string
 }
 
 variable "environment" {
+  description = "Deployment ortamı."
   type        = string
-  description = "Ortam adı."
 }
 
 variable "aws_region" {
+  description = "AWS region."
   type        = string
-  description = "AWS Region."
 }
 
 variable "vpc_id" {
-  type        = string
   description = "CloudForge VPC ID."
+  type        = string
 }
 
 variable "public_subnet_ids" {
+  description = "ALB ve development ECS için kullanılacak public subnetler."
   type        = list(string)
-  description = "Development ECS ve ALB public subnet ID'leri."
 }
 
 variable "private_data_subnet_ids" {
+  description = "RDS için kullanılacak private data subnetler."
   type        = list(string)
-  description = "RDS private data subnet ID'leri."
 }
 
 variable "alb_security_group_id" {
+  description = "ALB Security Group."
   type        = string
-  description = "ALB Security Group ID."
 }
 
 variable "ecs_security_group_id" {
+  description = "ECS Security Group."
   type        = string
-  description = "ECS Security Group ID."
 }
 
 variable "rds_security_group_id" {
+  description = "RDS Security Group."
   type        = string
-  description = "RDS Security Group ID."
 }
 
 variable "ecr_repository_url" {
-  type        = string
   description = "Demo application ECR repository URL."
+  type        = string
 }
 
 variable "image_tag" {
+  description = "ECS tarafından çalıştırılacak Docker image tag."
   type        = string
-  description = "Deploy edilecek immutable Docker image tag."
-}
-
-variable "deploy_service" {
-  type        = bool
-  description = "Demo ECS service oluşturulsun mu?"
 }
 
 variable "application_port" {
+  description = "Spring Boot portu."
   type        = number
   default     = 8080
-  description = "Spring Boot application portu."
 }
 
 variable "application_cpu" {
+  description = "Fargate CPU."
   type        = number
   default     = 512
-  description = "Fargate task CPU değeri."
 }
 
 variable "application_memory" {
+  description = "Fargate memory MiB."
   type        = number
   default     = 1024
-  description = "Fargate task memory değeri."
 }
 
 variable "desired_count" {
+  description = "Çalışacak ECS task sayısı."
   type        = number
   default     = 1
-  description = "Çalışacak ECS task sayısı."
 }
 
 variable "database_name" {
+  description = "PostgreSQL database adı."
   type        = string
   default     = "cloudforgedemo"
-  description = "PostgreSQL database adı."
 }
 
 variable "database_username" {
+  description = "PostgreSQL master user."
   type        = string
   default     = "cloudforge"
-  description = "PostgreSQL master kullanıcı adı."
 }
 
 variable "database_instance_class" {
+  description = "Development RDS instance tipi."
   type        = string
   default     = "db.t4g.micro"
-  description = "Development RDS instance tipi."
+}
+
+variable "deploy_service" {
+  description = "ECS task definition ve service oluşturulsun mu?"
+  type        = bool
+  default     = false
 }
