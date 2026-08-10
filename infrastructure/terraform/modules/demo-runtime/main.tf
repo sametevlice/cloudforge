@@ -91,6 +91,36 @@ resource "aws_lb_target_group" "demo" {
   tags = local.tags
 }
 
+resource "aws_lb_target_group" "demo_alternate" {
+  count = var.deployment_strategy == "BLUE_GREEN" ? 1 : 0
+
+  name = substr(
+    "${local.prefix}-demo-alt",
+    0,
+    32
+  )
+
+  port        = var.application_port
+  protocol    = "HTTP"
+  target_type = "ip"
+  vpc_id      = var.vpc_id
+
+  deregistration_delay = 30
+
+  health_check {
+    enabled             = true
+    path                = "/actuator/health"
+    protocol            = "HTTP"
+    matcher             = "200"
+    interval            = 15
+    timeout             = 5
+    healthy_threshold   = 2
+    unhealthy_threshold = 2
+  }
+
+  tags = local.tags
+}
+
 resource "aws_lb_listener" "http" {
   load_balancer_arn = aws_lb.demo.arn
   port              = 80
@@ -99,6 +129,41 @@ resource "aws_lb_listener" "http" {
   default_action {
     type             = "forward"
     target_group_arn = aws_lb_target_group.demo.arn
+  }
+}
+
+resource "aws_lb_listener_rule" "production" {
+  count = var.deployment_strategy == "BLUE_GREEN" ? 1 : 0
+
+  listener_arn = aws_lb_listener.http.arn
+  priority     = 100
+
+  action {
+    type = "forward"
+
+    forward {
+      target_group {
+        arn    = aws_lb_target_group.demo.arn
+        weight = 1
+      }
+
+      target_group {
+        arn    = aws_lb_target_group.demo_alternate[0].arn
+        weight = 0
+      }
+    }
+  }
+
+  condition {
+    path_pattern {
+      values = ["/*"]
+    }
+  }
+
+  lifecycle {
+    ignore_changes = [
+      action
+    ]
   }
 }
 
@@ -212,6 +277,29 @@ resource "aws_ecs_service" "demo" {
   launch_type      = "FARGATE"
   platform_version = "LATEST"
 
+  deployment_controller {
+    type = "ECS"
+  }
+
+  deployment_configuration {
+    strategy = var.deployment_strategy
+
+    bake_time_in_minutes = (
+      var.deployment_strategy == "BLUE_GREEN"
+      ? var.deployment_bake_time_minutes
+      : null
+    )
+  }
+
+  dynamic "deployment_circuit_breaker" {
+    for_each = var.deployment_strategy == "ROLLING" ? [1] : []
+
+    content {
+      enable   = true
+      rollback = true
+    }
+  }
+
   health_check_grace_period_seconds = 90
 
   network_configuration {
@@ -224,20 +312,72 @@ resource "aws_ecs_service" "demo" {
     target_group_arn = aws_lb_target_group.demo.arn
     container_name   = local.container
     container_port   = var.application_port
-  }
 
-  deployment_circuit_breaker {
-    enable   = true
-    rollback = true
+    dynamic "advanced_configuration" {
+      for_each = var.deployment_strategy == "BLUE_GREEN" ? [1] : []
+
+      content {
+        alternate_target_group_arn = aws_lb_target_group.demo_alternate[0].arn
+
+        production_listener_rule = aws_lb_listener_rule.production[0].arn
+
+        role_arn = aws_iam_role.ecs_infrastructure[0].arn
+      }
+    }
   }
 
   wait_for_steady_state = true
 
   depends_on = [
     aws_lb_listener.http,
+    aws_lb_listener_rule.production,
     aws_iam_role_policy_attachment.execution,
-    aws_iam_role_policy.secret_read
+    aws_iam_role_policy.secret_read,
+    aws_iam_role_policy_attachment.ecs_infrastructure
   ]
 
+  lifecycle {
+    ignore_changes = [
+      task_definition
+    ]
+  }
+
   tags = local.tags
+
+}
+
+data "aws_iam_policy_document" "ecs_infrastructure_assume" {
+  statement {
+    effect = "Allow"
+
+    actions = [
+      "sts:AssumeRole"
+    ]
+
+    principals {
+      type = "Service"
+
+      identifiers = [
+        "ecs.amazonaws.com"
+      ]
+    }
+  }
+}
+
+resource "aws_iam_role" "ecs_infrastructure" {
+  count = var.deployment_strategy == "BLUE_GREEN" ? 1 : 0
+
+  name = "${local.prefix}-ecs-infrastructure"
+
+  assume_role_policy = data.aws_iam_policy_document.ecs_infrastructure_assume.json
+
+  tags = local.tags
+}
+
+resource "aws_iam_role_policy_attachment" "ecs_infrastructure" {
+  count = var.deployment_strategy == "BLUE_GREEN" ? 1 : 0
+
+  role = aws_iam_role.ecs_infrastructure[0].name
+
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSInfrastructureRolePolicyForLoadBalancers"
 }

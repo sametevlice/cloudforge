@@ -47,3 +47,27 @@ jobs:
 
       - name: Validate development
         run: terraform -chdir=infrastructure/terraform/environments/development validate
+
+      - name: Initialize staging without backend
+        run: |
+          terraform \
+            -chdir=infrastructure/terraform/environments/staging \
+            init -backend=false
+
+      - name: Validate staging
+        run: |
+          terraform \
+            -chdir=infrastructure/terraform/environments/staging \
+            validate
+
+      - name: Initialize production without backend
+        run: |
+          terraform \
+            -chdir=infrastructure/terraform/environments/production \
+            init -backend=false
+
+      - name: Validate production
+        run: |
+          terraform \
+            -chdir=infrastructure/terraform/environments/production \
+            validate
