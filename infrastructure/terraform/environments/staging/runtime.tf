@@ -31,5 +31,11 @@ module "demo_runtime" {
   database_username       = var.demo_database_username
   database_instance_class = var.demo_database_instance_class
 
+
+  enable_deployment_alarms = true
+
+  deployment_5xx_threshold = 5
+
+  enable_autoscaling  = false
   deployment_strategy = "ROLLING"
 }
