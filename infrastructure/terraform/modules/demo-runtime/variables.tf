@@ -100,3 +100,27 @@ variable "deploy_service" {
   type        = bool
   default     = false
 }
+
+variable "deployment_strategy" {
+  description = "ECS deployment strategy."
+  type        = string
+  default     = "ROLLING"
+
+  validation {
+    condition = contains(
+      [
+        "ROLLING",
+        "BLUE_GREEN"
+      ],
+      var.deployment_strategy
+    )
+
+    error_message = "deployment_strategy ROLLING veya BLUE_GREEN olmalıdır."
+  }
+}
+
+variable "deployment_bake_time_minutes" {
+  description = "Blue ve green revision'ların birlikte çalışacağı süre."
+  type        = number
+  default     = 2
+}
