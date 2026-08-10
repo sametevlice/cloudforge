@@ -34,4 +34,16 @@ module "demo_runtime" {
   deployment_strategy = "BLUE_GREEN"
 
   deployment_bake_time_minutes = var.deployment_bake_time_minutes
+  enable_deployment_alarms     = true
+
+  deployment_5xx_threshold = 5
+
+  enable_autoscaling = true
+
+  autoscaling_min_capacity = 1
+  autoscaling_max_capacity = 4
+
+  autoscaling_cpu_target    = 60
+  autoscaling_memory_target = 70
+
 }

@@ -291,6 +291,27 @@ resource "aws_ecs_service" "demo" {
     )
   }
 
+  dynamic "alarms" {
+    for_each = var.enable_deployment_alarms ? [1] : []
+
+    content {
+      enable   = true
+      rollback = true
+
+      alarm_names = concat(
+        [
+          aws_cloudwatch_metric_alarm.alb_5xx[0].alarm_name,
+          aws_cloudwatch_metric_alarm.target_5xx_primary[0].alarm_name
+        ],
+        var.deployment_strategy == "BLUE_GREEN"
+        ? [
+          aws_cloudwatch_metric_alarm.target_5xx_alternate[0].alarm_name
+        ]
+        : []
+      )
+    }
+  }
+
   dynamic "deployment_circuit_breaker" {
     for_each = var.deployment_strategy == "ROLLING" ? [1] : []
 
@@ -338,7 +359,8 @@ resource "aws_ecs_service" "demo" {
 
   lifecycle {
     ignore_changes = [
-      task_definition
+      task_definition,
+      desired_count
     ]
   }
 

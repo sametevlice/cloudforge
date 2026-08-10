@@ -124,3 +124,49 @@ variable "deployment_bake_time_minutes" {
   type        = number
   default     = 2
 }
+
+variable "enable_deployment_alarms" {
+  description = "ECS deployment sırasında CloudWatch alarm kontrolünü etkinleştirir."
+  type        = bool
+  default     = false
+}
+
+variable "deployment_5xx_threshold" {
+  description = "Deployment rollback için iki dakikalık periyotlarda izin verilen 5xx hata eşiği."
+  type        = number
+  default     = 5
+}
+variable "enable_autoscaling" {
+  description = "ECS Service Auto Scaling etkinleştirilsin mi?"
+  type        = bool
+  default     = false
+}
+
+variable "autoscaling_min_capacity" {
+  description = "Minimum ECS task sayısı."
+  type        = number
+  default     = 1
+}
+
+variable "autoscaling_max_capacity" {
+  description = "Maximum ECS task sayısı."
+  type        = number
+  default     = 4
+
+  validation {
+    condition     = var.autoscaling_max_capacity >= 1
+    error_message = "autoscaling_max_capacity en az 1 olmalıdır."
+  }
+}
+
+variable "autoscaling_cpu_target" {
+  description = "CPU target tracking yüzdesi."
+  type        = number
+  default     = 60
+}
+
+variable "autoscaling_memory_target" {
+  description = "Memory target tracking yüzdesi."
+  type        = number
+  default     = 70
+}

@@ -1,0 +1,181 @@
+pipeline {
+    agent any
+
+    options {
+        timestamps()
+        disableConcurrentBuilds()
+
+        timeout(
+            time: 45,
+            unit: 'MINUTES'
+        )
+    }
+
+    parameters {
+        string(
+            name: 'IMAGE_TAG',
+            defaultValue: '',
+            description: 'ECR üzerinde deploy edilecek Git commit SHA'
+        )
+    }
+
+    environment {
+        AWS_PROFILE = 'cloudforge'
+        AWS_REGION = 'eu-central-1'
+
+        ECR_REPOSITORY = 'cloudforge-demo-app'
+    }
+
+    stages {
+
+        stage('Validate Release') {
+            steps {
+                script {
+                    if (!params.IMAGE_TAG?.trim()) {
+                        error('IMAGE_TAG zorunludur.')
+                    }
+                }
+
+                sh '''
+                    set -e
+
+                    echo "Release image:"
+                    echo "$IMAGE_TAG"
+
+                    aws sts get-caller-identity
+
+                    aws ecr describe-images \
+                      --repository-name "$ECR_REPOSITORY" \
+                      --image-ids imageTag="$IMAGE_TAG" \
+                      --region "$AWS_REGION"
+                '''
+            }
+        }
+
+        stage('Deploy Staging') {
+            steps {
+                sh '''
+                    set -e
+
+                    CLUSTER_NAME=cloudforge-staging-cluster \
+                    SERVICE_NAME=cloudforge-staging-demo-app \
+                    ALB_NAME=cloudforge-staging-demo-alb \
+                    ECR_REPOSITORY="$ECR_REPOSITORY" \
+                    AWS_REGION="$AWS_REGION" \
+                    ./infrastructure/jenkins/scripts/deploy-ecs.sh \
+                      "$IMAGE_TAG"
+                '''
+            }
+        }
+
+        stage('Staging Smoke Test') {
+            steps {
+                sh '''
+                    set -e
+
+                    ALB_DNS=$(
+                      aws elbv2 describe-load-balancers \
+                        --names cloudforge-staging-demo-alb \
+                        --region "$AWS_REGION" \
+                        --query 'LoadBalancers[0].DNSName' \
+                        --output text
+                    )
+
+                    curl \
+                      --fail \
+                      --silent \
+                      --show-error \
+                      "http://${ALB_DNS}/actuator/health"
+
+                    echo
+
+                    curl \
+                      --fail \
+                      --silent \
+                      --show-error \
+                      "http://${ALB_DNS}/api/version"
+
+                    echo
+                '''
+            }
+        }
+
+        stage('Production Approval') {
+            input {
+                message 'Staging başarılı. Bu sürüm production ortamına deploy edilsin mi?'
+
+                ok 'Production Deploy'
+            }
+
+            steps {
+                echo "Production deployment onaylandı."
+            }
+        }
+
+        stage('Deploy Production') {
+            steps {
+                sh '''
+                    set -e
+
+                    CLUSTER_NAME=cloudforge-production-cluster \
+                    SERVICE_NAME=cloudforge-production-demo-app \
+                    ALB_NAME=cloudforge-production-demo-alb \
+                    ECR_REPOSITORY="$ECR_REPOSITORY" \
+                    AWS_REGION="$AWS_REGION" \
+                    ./infrastructure/jenkins/scripts/deploy-ecs.sh \
+                      "$IMAGE_TAG"
+                '''
+            }
+        }
+
+        stage('Production Verification') {
+            steps {
+                sh '''
+                    set -e
+
+                    ALB_DNS=$(
+                      aws elbv2 describe-load-balancers \
+                        --names cloudforge-production-demo-alb \
+                        --region "$AWS_REGION" \
+                        --query 'LoadBalancers[0].DNSName' \
+                        --output text
+                    )
+
+                    echo "Production:"
+                    echo "http://${ALB_DNS}"
+
+                    curl \
+                      --fail \
+                      --silent \
+                      --show-error \
+                      "http://${ALB_DNS}/actuator/health"
+
+                    echo
+
+                    curl \
+                      --fail \
+                      --silent \
+                      --show-error \
+                      "http://${ALB_DNS}/api/version"
+
+                    echo
+                '''
+            }
+        }
+    }
+
+    post {
+
+        success {
+            echo "CloudForge release pipeline başarılı."
+        }
+
+        failure {
+            echo "CloudForge release pipeline başarısız."
+        }
+
+        always {
+            echo "Release sonucu: ${currentBuild.currentResult}"
+        }
+    }
+}
