@@ -5,6 +5,7 @@ on:
     paths:
       - "apps/**"
       - "infrastructure/**"
+      - "tests/**"
       - ".github/workflows/security-ci.yml"
       - ".tflint.hcl"
 
@@ -14,6 +15,7 @@ on:
     paths:
       - "apps/**"
       - "infrastructure/**"
+      - "tests/**"
       - ".github/workflows/security-ci.yml"
       - ".tflint.hcl"
 
@@ -27,11 +29,12 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Setup TFLint
-        uses: terraform-linters/setup-tflint@v6.3.0
+        uses: terraform-linters/setup-tflint@6e1e0642c0289bd619021bf6b34e3c08ed1e005a # v6.3.0
         with:
+          tflint_version: v0.64.0
           cache: true
 
       - name: Initialize TFLint
@@ -50,21 +53,19 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v7
-
-      - name: Setup Python
-        uses: actions/setup-python@v6
-        with:
-          python-version: "3.13"
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Install Checkov
-        run: pip install checkov
+        run: |
+          python3 -m pip install --upgrade pip
+          python3 -m pip install checkov
 
       - name: Run Checkov
         run: |
           checkov \
             -d infrastructure/terraform \
             --framework terraform \
+            --compact \
             --soft-fail
 
   trivy-secrets:
@@ -73,16 +74,19 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - name: Scan repository
-        uses: aquasecurity/trivy-action@v0.36.0
+      - name: Setup Trivy
+        uses: aquasecurity/setup-trivy@e07451d2e059ed86c2870430ea286b3a9e0bf241
         with:
-          scan-type: fs
-          scan-ref: .
-          scanners: secret
-          severity: HIGH,CRITICAL
-          exit-code: "1"
+          version: v0.73.0
+
+      - name: Scan repository secrets
+        run: |
+          trivy fs \
+            --scanners secret \
+            --exit-code 1 \
+            .
 
   trivy-iac:
     name: Trivy IaC
@@ -90,15 +94,19 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - name: Scan Terraform
-        uses: aquasecurity/trivy-action@v0.36.0
+      - name: Setup Trivy
+        uses: aquasecurity/setup-trivy@e07451d2e059ed86c2870430ea286b3a9e0bf241
         with:
-          scan-type: config
-          scan-ref: infrastructure/terraform
-          severity: HIGH,CRITICAL
-          exit-code: "0"
+          version: v0.73.0
+
+      - name: Scan Terraform configuration
+        run: |
+          trivy config \
+            --severity HIGH,CRITICAL \
+            --exit-code 0 \
+            infrastructure/terraform
 
   container-security:
     name: Container Security
@@ -106,7 +114,12 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup Trivy
+        uses: aquasecurity/setup-trivy@e07451d2e059ed86c2870430ea286b3a9e0bf241
+        with:
+          version: v0.73.0
 
       - name: Build demo image
         run: |
@@ -114,10 +127,10 @@ jobs:
             -t cloudforge-demo-app:security-ci \
             apps/demo-app
 
-      - name: Scan image
-        uses: aquasecurity/trivy-action@v0.36.0
-        with:
-          image-ref: cloudforge-demo-app:security-ci
-          severity: HIGH,CRITICAL
-          ignore-unfixed: true
-          exit-code: "1"
+      - name: Scan demo image
+        run: |
+          trivy image \
+            --severity HIGH,CRITICAL \
+            --ignore-unfixed \
+            --exit-code 1 \
+            cloudforge-demo-app:security-ci
