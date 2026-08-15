@@ -8,17 +8,6 @@ variable "environment" {
   type        = string
 }
 
-variable "github_repository" {
-  description = "owner/repository formatında GitHub repository."
-  type        = string
-}
-
-variable "github_branch" {
-  description = "AWS erişmesine izin verilen GitHub branch."
-  type        = string
-  default     = "main"
-}
-
 variable "ecr_repository_arn" {
   description = "GitHub Actions'ın image göndereceği ECR repository ARN."
   type        = string
@@ -30,7 +19,13 @@ variable "create_oidc_provider" {
   default     = true
 }
 
-variable "github_subject" {
-  description = "GitHub Actions OIDC token içerisindeki exact subject claim."
+variable "github_repository" {
+  description = "GitHub owner/repository formatındaki repository adı."
   type        = string
+}
+
+variable "github_branch" {
+  description = "AWS OIDC erişimine izin verilen GitHub branch."
+  type        = string
+  default     = "main"
 }
