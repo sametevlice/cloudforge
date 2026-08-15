@@ -79,12 +79,13 @@ jobs:
       - name: Setup Trivy
         uses: aquasecurity/setup-trivy@e07451d2e059ed86c2870430ea286b3a9e0bf241
         with:
-          version: v0.73.0
+          version: v0.74.0
 
       - name: Scan repository secrets
         run: |
           trivy fs \
             --scanners secret \
+            --offline-scan \
             --exit-code 1 \
             .
 
@@ -99,7 +100,7 @@ jobs:
       - name: Setup Trivy
         uses: aquasecurity/setup-trivy@e07451d2e059ed86c2870430ea286b3a9e0bf241
         with:
-          version: v0.73.0
+          version: v0.74.0
 
       - name: Scan Terraform configuration
         run: |
@@ -119,7 +120,7 @@ jobs:
       - name: Setup Trivy
         uses: aquasecurity/setup-trivy@e07451d2e059ed86c2870430ea286b3a9e0bf241
         with:
-          version: v0.73.0
+          version: v0.74.0
 
       - name: Build demo image
         run: |
