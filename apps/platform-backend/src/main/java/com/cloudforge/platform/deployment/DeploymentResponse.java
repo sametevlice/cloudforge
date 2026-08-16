@@ -12,7 +12,8 @@ public record DeploymentResponse(
     Instant requestedAt,
     Instant startedAt,
     Instant finishedAt,
-    String failureReason
+    String failureReason,
+    UUID rollbackOfDeploymentId
 ) {
 
     public static DeploymentResponse from(
@@ -27,7 +28,8 @@ public record DeploymentResponse(
             deployment.getRequestedAt(),
             deployment.getStartedAt(),
             deployment.getFinishedAt(),
-            deployment.getFailureReason()
+            deployment.getFailureReason(),
+            deployment.getRollbackOfDeploymentId()
         );
     }
 }

@@ -35,6 +35,17 @@ public class GlobalExceptionHandler {
         );
     }
 
+    @ExceptionHandler(InvalidCallbackTokenException.class)
+    public ResponseEntity<ApiError> handleInvalidCallbackToken(
+        InvalidCallbackTokenException exception
+    ) {
+        return build(
+            HttpStatus.UNAUTHORIZED,
+            exception.getMessage(),
+            Map.of()
+        );
+    }
+
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ApiError> handleValidation(
         MethodArgumentNotValidException exception

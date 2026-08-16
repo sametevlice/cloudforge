@@ -52,3 +52,6 @@ cloudforge:
     username: ${JENKINS_USERNAME:}
     api-token: ${JENKINS_API_TOKEN:}
     job-name: ${JENKINS_JOB_NAME:cloudforge-release}
+
+  callback:
+    token: ${CLOUDFORGE_CALLBACK_TOKEN:}

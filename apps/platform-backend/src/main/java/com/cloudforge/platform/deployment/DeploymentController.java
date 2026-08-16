@@ -19,13 +19,16 @@ public class DeploymentController {
 
     private final DeploymentService service;
     private final DeploymentEventService eventService;
+    private final DeploymentRollbackService rollbackService;
 
     public DeploymentController(
         DeploymentService service,
-        DeploymentEventService eventService
+        DeploymentEventService eventService,
+        DeploymentRollbackService rollbackService
     ) {
         this.service = service;
         this.eventService = eventService;
+        this.rollbackService = rollbackService;
     }
 
     @PostMapping(
@@ -45,7 +48,8 @@ public class DeploymentController {
         return ResponseEntity
             .created(
                 URI.create(
-                    "/api/deployments/" + response.id()
+                    "/api/deployments/"
+                        + response.id()
                 )
             )
             .body(response);
@@ -76,5 +80,22 @@ public class DeploymentController {
         service.findById(id);
 
         return eventService.findByDeployment(id);
+    }
+
+    @PostMapping("/deployments/{id}/rollback")
+    public ResponseEntity<DeploymentResponse> rollback(
+        @PathVariable UUID id
+    ) {
+        DeploymentResponse response =
+            rollbackService.rollback(id);
+
+        return ResponseEntity
+            .created(
+                URI.create(
+                    "/api/deployments/"
+                        + response.id()
+                )
+            )
+            .body(response);
     }
 }

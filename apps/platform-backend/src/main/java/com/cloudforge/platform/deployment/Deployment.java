@@ -35,7 +35,10 @@ public class Deployment {
     private CloudApplication application;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 30)
+    @Column(
+        nullable = false,
+        length = 30
+    )
     private DeploymentEnvironment environment;
 
     @Column(
@@ -46,7 +49,10 @@ public class Deployment {
     private String imageTag;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 30)
+    @Column(
+        nullable = false,
+        length = 30
+    )
     private DeploymentStatus status;
 
     @Column(
@@ -70,6 +76,22 @@ public class Deployment {
     @Column(name = "deployed_task_definition")
     private String deployedTaskDefinition;
 
+    /*
+     * Eğer bu deployment bir rollback işlemi sonucunda
+     * oluşturulduysa, hangi deployment'ın rollback'i
+     * olduğunu burada tutuyoruz.
+     *
+     * Örnek:
+     *
+     * Deployment A -> bozuk sürüm
+     * Deployment B -> A'nın rollback deployment'ı
+     *
+     * B.rollbackOfDeployment = A
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "rollback_of_deployment_id")
+    private Deployment rollbackOfDeployment;
+
     protected Deployment() {
     }
 
@@ -85,70 +107,29 @@ public class Deployment {
         this.requestedAt = Instant.now();
     }
 
-    public void markRunning() {
-        if (status != DeploymentStatus.QUEUED) {
-            throw new IllegalStateException(
-                "Only QUEUED deployment can become RUNNING."
-            );
-        }
-
-        status = DeploymentStatus.RUNNING;
-        startedAt = Instant.now();
-        finishedAt = null;
-        failureReason = null;
-    }
-
-    public void markSucceeded() {
-        if (status != DeploymentStatus.RUNNING) {
-            throw new IllegalStateException(
-                "Only RUNNING deployment can succeed."
-            );
-        }
-
-        status = DeploymentStatus.SUCCEEDED;
-        finishedAt = Instant.now();
-        failureReason = null;
-    }
-
-    public void markFailed(String reason) {
-        if (
-            status == DeploymentStatus.SUCCEEDED
-                || status == DeploymentStatus.ROLLED_BACK
-        ) {
-            throw new IllegalStateException(
-                "Completed deployment cannot fail."
-            );
-        }
-
-        status = DeploymentStatus.FAILED;
-        failureReason = reason;
-        finishedAt = Instant.now();
-    }
-
-    public void markRolledBack() {
-        if (
-            status != DeploymentStatus.SUCCEEDED
-                && status != DeploymentStatus.FAILED
-        ) {
-            throw new IllegalStateException(
-                "Only SUCCEEDED or FAILED deployment can be rolled back."
-            );
-        }
-
-        status = DeploymentStatus.ROLLED_BACK;
-        finishedAt = Instant.now();
-    }
-
-    public void setPreviousTaskDefinition(
-        String previousTaskDefinition
+    /*
+     * Yeni bir rollback deployment'ı oluşturur.
+     *
+     * target:
+     * Geri almak istediğimiz deployment.
+     *
+     * previousSuccessful:
+     * Daha önce başarılı olmuş ve geri dönmek
+     * istediğimiz deployment.
+     */
+    public static Deployment rollback(
+        Deployment target,
+        Deployment previousSuccessful
     ) {
-        this.previousTaskDefinition = previousTaskDefinition;
-    }
+        Deployment rollback = new Deployment(
+            target.getApplication(),
+            target.getEnvironment(),
+            previousSuccessful.getImageTag()
+        );
 
-    public void setDeployedTaskDefinition(
-        String deployedTaskDefinition
-    ) {
-        this.deployedTaskDefinition = deployedTaskDefinition;
+        rollback.rollbackOfDeployment = target;
+
+        return rollback;
     }
 
     public UUID getId() {
@@ -193,5 +174,111 @@ public class Deployment {
 
     public String getDeployedTaskDefinition() {
         return deployedTaskDefinition;
+    }
+
+    /*
+     * rollbackOfDeployment nesnesinin tamamını
+     * API'ye vermek yerine yalnızca ID'sini veriyoruz.
+     */
+    public UUID getRollbackOfDeploymentId() {
+        return rollbackOfDeployment == null
+            ? null
+            : rollbackOfDeployment.getId();
+    }
+
+    public void markRunning() {
+        /*
+         * Jenkins aynı callback'i yanlışlıkla
+         * iki kez gönderirse sorun çıkarmıyoruz.
+         */
+        if (status == DeploymentStatus.RUNNING) {
+            return;
+        }
+
+        if (status != DeploymentStatus.QUEUED) {
+            throw new IllegalStateException(
+                "Only QUEUED deployment can become RUNNING."
+            );
+        }
+
+        status = DeploymentStatus.RUNNING;
+
+        if (startedAt == null) {
+            startedAt = Instant.now();
+        }
+    }
+
+    public void markSucceeded() {
+        if (status == DeploymentStatus.SUCCEEDED) {
+            return;
+        }
+
+        if (status != DeploymentStatus.RUNNING) {
+            throw new IllegalStateException(
+                "Only RUNNING deployment can succeed."
+            );
+        }
+
+        status = DeploymentStatus.SUCCEEDED;
+        finishedAt = Instant.now();
+        failureReason = null;
+    }
+
+    public void markFailed(String reason) {
+        if (status == DeploymentStatus.FAILED) {
+            return;
+        }
+
+        if (
+            status != DeploymentStatus.RUNNING
+            && status != DeploymentStatus.QUEUED
+        ) {
+            throw new IllegalStateException(
+                "Deployment cannot transition to FAILED."
+            );
+        }
+
+        status = DeploymentStatus.FAILED;
+        finishedAt = Instant.now();
+        failureReason = reason;
+    }
+
+    public void markRolledBack() {
+        if (status == DeploymentStatus.ROLLED_BACK) {
+            return;
+        }
+
+        if (
+            status != DeploymentStatus.SUCCEEDED
+            && status != DeploymentStatus.FAILED
+            && status != DeploymentStatus.RUNNING
+        ) {
+            throw new IllegalStateException(
+                "Deployment cannot be rolled back."
+            );
+        }
+
+        status = DeploymentStatus.ROLLED_BACK;
+        finishedAt = Instant.now();
+    }
+
+    /*
+     * Jenkins/ECS gerçek deployment yaptığında
+     * eski ve yeni ECS Task Definition bilgilerini
+     * backend'e bildirebilecek.
+     */
+    public void updateTaskDefinitions(
+        String previousTaskDefinition,
+        String deployedTaskDefinition
+    ) {
+        if (previousTaskDefinition != null) {
+            this.previousTaskDefinition =
+                previousTaskDefinition;
+        }
+
+        if (deployedTaskDefinition != null) {
+            this.deployedTaskDefinition =
+                deployedTaskDefinition;
+        }
     }
 }
