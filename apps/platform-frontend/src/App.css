@@ -1,0 +1,608 @@
+:root {
+  font-family:
+    Inter,
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
+
+  color: #f5f7fa;
+  background: #090d13;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+button,
+input,
+select {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+.page {
+  width: min(1200px, 92%);
+  margin: 0 auto;
+  padding: 48px 0 80px;
+}
+
+
+/*
+ * =========================================================
+ * HERO
+ * =========================================================
+ */
+
+.hero {
+  margin-bottom: 34px;
+}
+
+.hero h1 {
+  margin: 6px 0 8px;
+  font-size: clamp(
+    42px,
+    7vw,
+    72px
+  );
+  letter-spacing: -0.04em;
+}
+
+.hero-description {
+  max-width: 680px;
+  margin: 0;
+  color: #9da9b8;
+  font-size: 17px;
+}
+
+.eyebrow,
+.panel-label {
+  margin: 0;
+  color: #718096;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+}
+
+
+/*
+ * =========================================================
+ * LAYOUT
+ * =========================================================
+ */
+
+.grid {
+  display: grid;
+
+  grid-template-columns:
+    repeat(
+      auto-fit,
+      minmax(340px, 1fr)
+    );
+
+  gap: 20px;
+}
+
+.panel {
+  padding: 24px;
+  margin-bottom: 20px;
+
+  border: 1px solid #252d39;
+  border-radius: 18px;
+
+  background:
+    linear-gradient(
+      180deg,
+      #121821 0%,
+      #0f141c 100%
+    );
+}
+
+.panel-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+
+  gap: 16px;
+  margin-bottom: 22px;
+}
+
+.panel-header h2 {
+  margin: 5px 0 0;
+  font-size: 22px;
+}
+
+.count {
+  min-width: 32px;
+
+  padding: 6px 10px;
+
+  border-radius: 999px;
+
+  background: #202937;
+
+  text-align: center;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+
+/*
+ * =========================================================
+ * FORM
+ * =========================================================
+ */
+
+form {
+  display: grid;
+  gap: 14px;
+}
+
+label {
+  display: grid;
+  gap: 7px;
+
+  color: #aab5c2;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+input,
+select {
+  width: 100%;
+
+  padding: 12px 14px;
+
+  border: 1px solid #303a48;
+  border-radius: 10px;
+
+  outline: none;
+
+  background: #090e15;
+  color: #f5f7fa;
+}
+
+input:focus,
+select:focus {
+  border-color: #718096;
+}
+
+.primary-button {
+  padding: 12px 14px;
+
+  border: 0;
+  border-radius: 10px;
+
+  background: #f5f7fa;
+  color: #10151d;
+
+  font-weight: 800;
+}
+
+.secondary-button {
+  padding: 9px 12px;
+
+  border: 1px solid #364150;
+  border-radius: 9px;
+
+  background: #202937;
+  color: #f5f7fa;
+}
+
+
+/*
+ * =========================================================
+ * APPLICATION
+ * =========================================================
+ */
+
+.application-list {
+  display: grid;
+  gap: 9px;
+
+  margin-top: 20px;
+}
+
+.application {
+  display: flex;
+
+  align-items: center;
+  justify-content: space-between;
+
+  gap: 16px;
+
+  width: 100%;
+
+  padding: 14px;
+
+  border: 1px solid transparent;
+  border-radius: 11px;
+
+  background: #171e28;
+  color: inherit;
+
+  text-align: left;
+}
+
+.application:hover {
+  background: #1c2531;
+}
+
+.application.active {
+  border-color: #76849a;
+  background: #202937;
+}
+
+.application div {
+  min-width: 0;
+}
+
+.application strong {
+  display: block;
+}
+
+.application small {
+  display: block;
+
+  max-width: 300px;
+
+  margin-top: 5px;
+
+  overflow: hidden;
+
+  color: #7f8b9b;
+
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.application > span {
+  color: #8e9bad;
+  font-size: 12px;
+}
+
+.selected-app {
+  display: flex;
+
+  align-items: center;
+  justify-content: space-between;
+
+  gap: 10px;
+
+  padding: 12px 14px;
+
+  border-radius: 10px;
+
+  background: #171e28;
+}
+
+.selected-app span {
+  color: #8490a0;
+  font-size: 12px;
+}
+
+
+/*
+ * =========================================================
+ * DEPLOYMENTS
+ * =========================================================
+ */
+
+.deployment-list {
+  display: grid;
+  gap: 10px;
+}
+
+.deployment {
+  display: grid;
+
+  grid-template-columns:
+    minmax(0, 1fr)
+    auto
+    auto;
+
+  align-items: center;
+
+  gap: 18px;
+
+  padding: 16px;
+
+  border: 1px solid transparent;
+  border-radius: 12px;
+
+  background: #171e28;
+
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease;
+}
+
+.deployment:hover {
+  border-color: #384455;
+  background: #1b2430;
+}
+
+.deployment.selected {
+  border-color: #7b899e;
+  background: #202937;
+}
+
+.deployment-main {
+  min-width: 0;
+}
+
+.deployment-main p {
+  margin: 5px 0;
+
+  overflow: hidden;
+
+  color: #a4afbd;
+
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.deployment-main small {
+  color: #657183;
+}
+
+
+/*
+ * =========================================================
+ * STATUS
+ * =========================================================
+ */
+
+.status {
+  display: inline-flex;
+
+  align-items: center;
+  justify-content: center;
+
+  min-width: 88px;
+
+  padding: 6px 9px;
+
+  border-radius: 999px;
+
+  background: #27303d;
+  color: #dbe2eb;
+
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+
+.status.queued {
+  background: #3a321a;
+  color: #f2d675;
+}
+
+.status.running {
+  background: #182f48;
+  color: #76bfff;
+}
+
+.status.succeeded {
+  background: #183728;
+  color: #73d99c;
+}
+
+.status.failed {
+  background: #421f27;
+  color: #ff919f;
+}
+
+.status.rolled_back {
+  background: #38274b;
+  color: #c7a6ff;
+}
+
+
+/*
+ * =========================================================
+ * TIMELINE
+ *
+ * AŞAMA 12
+ * =========================================================
+ */
+
+.timeline-summary {
+  display: grid;
+
+  grid-template-columns:
+    repeat(
+      3,
+      minmax(0, 1fr)
+    );
+
+  gap: 12px;
+
+  margin-bottom: 24px;
+}
+
+.timeline-summary > div {
+  padding: 14px;
+
+  border: 1px solid #252e3b;
+  border-radius: 10px;
+
+  background: #0c1118;
+}
+
+.timeline-summary span {
+  display: block;
+
+  margin-bottom: 7px;
+
+  color: #687587;
+  font-size: 11px;
+  text-transform: uppercase;
+}
+
+.timeline-summary strong {
+  display: block;
+
+  overflow: hidden;
+
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mono {
+  font-family:
+    "SFMono-Regular",
+    Consolas,
+    "Liberation Mono",
+    monospace;
+
+  font-size: 12px;
+}
+
+.timeline {
+  display: grid;
+  gap: 0;
+}
+
+.timeline-event {
+  position: relative;
+
+  display: grid;
+
+  grid-template-columns:
+    42px
+    minmax(0, 1fr);
+
+  gap: 12px;
+
+  min-height: 90px;
+}
+
+.timeline-event:not(:last-child)::before {
+  position: absolute;
+
+  top: 32px;
+  bottom: 0;
+  left: 15px;
+
+  width: 2px;
+
+  background: #303a48;
+
+  content: "";
+}
+
+.timeline-marker {
+  position: relative;
+
+  z-index: 1;
+}
+
+.timeline-marker span {
+  display: flex;
+
+  align-items: center;
+  justify-content: center;
+
+  width: 32px;
+  height: 32px;
+
+  border: 2px solid #526074;
+  border-radius: 50%;
+
+  background: #141b24;
+
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.timeline-content {
+  padding: 5px 0 24px;
+}
+
+.timeline-title {
+  display: flex;
+
+  align-items: center;
+  justify-content: space-between;
+
+  gap: 20px;
+}
+
+.timeline-title strong {
+  font-size: 14px;
+}
+
+.timeline-title span {
+  color: #687587;
+  font-size: 12px;
+}
+
+.timeline-content p {
+  margin: 8px 0 0;
+
+  color: #a7b0bd;
+}
+
+
+/*
+ * =========================================================
+ * COMMON
+ * =========================================================
+ */
+
+.error {
+  padding: 14px 16px;
+  margin-bottom: 20px;
+
+  border: 1px solid #6b2935;
+  border-radius: 11px;
+
+  background: #36171e;
+  color: #ffb5be;
+}
+
+.empty {
+  color: #778496;
+}
+
+
+/*
+ * =========================================================
+ * RESPONSIVE
+ * =========================================================
+ */
+
+@media (
+  max-width: 760px
+) {
+
+  .page {
+    width: 94%;
+    padding-top: 30px;
+  }
+
+  .deployment {
+    grid-template-columns:
+      1fr;
+  }
+
+  .status {
+    width: fit-content;
+  }
+
+  .timeline-summary {
+    grid-template-columns:
+      1fr;
+  }
+
+  .timeline-title {
+    display: grid;
+    gap: 4px;
+  }
+}
