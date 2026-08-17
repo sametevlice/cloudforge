@@ -173,8 +173,7 @@ Service       : ${env.SERVICE_NAME}
 
 		beforeInput true
                 expression {
-                    params.TARGET_ENVIRONMENT
-                        == 'PRODUCTION'
+                    return params.TARGET_ENVIRONMENT == 'PRODUCTION'
                 }
             }
 
