@@ -40,3 +40,41 @@ demo-logs:
 
 demo-smoke:
 	./scripts/demo-smoke-test.sh
+
+
+.PHONY: \
+	platform-build \
+	platform-up \
+	platform-down \
+	platform-reset \
+	platform-ps \
+	platform-logs \
+	platform-test \
+	platform-smoke
+
+platform-build:
+	docker compose -f docker-compose.platform.yml build
+
+platform-up:
+	docker compose -f docker-compose.platform.yml up --build -d
+
+platform-down:
+	docker compose -f docker-compose.platform.yml down
+
+platform-reset:
+	docker compose -f docker-compose.platform.yml down -v
+	docker compose -f docker-compose.platform.yml up --build -d
+
+platform-ps:
+	docker compose -f docker-compose.platform.yml ps
+
+platform-logs:
+	docker compose -f docker-compose.platform.yml logs -f
+
+platform-test:
+	mvn -f apps/platform-backend/pom.xml clean test
+	npm --prefix apps/platform-frontend ci
+	npm --prefix apps/platform-frontend run build
+
+platform-smoke:
+	./scripts/platform-smoke-test.sh

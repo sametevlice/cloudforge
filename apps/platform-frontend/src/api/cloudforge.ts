@@ -16,6 +16,7 @@ async function request<T>(
     `${API_BASE}${path}`,
     {
       ...init,
+
       headers: {
         'Content-Type': 'application/json',
         ...init?.headers,
@@ -27,12 +28,14 @@ async function request<T>(
     const body = await response.text()
 
     throw new Error(
-      body || `Request failed: ${response.status}`,
+      body ||
+        `Request failed: ${response.status}`,
     )
   }
 
   return response.json() as Promise<T>
 }
+
 
 export function getApplications() {
   return request<CloudApplication[]>(
@@ -40,11 +43,14 @@ export function getApplications() {
   )
 }
 
-export function createApplication(input: {
-  name: string
-  repositoryUrl: string
-  defaultBranch: string
-}) {
+
+export function createApplication(
+  input: {
+    name: string
+    repositoryUrl: string
+    defaultBranch: string
+  },
+) {
   return request<CloudApplication>(
     '/applications',
     {
@@ -54,6 +60,7 @@ export function createApplication(input: {
   )
 }
 
+
 export function getDeployments(
   applicationId: string,
 ) {
@@ -61,6 +68,7 @@ export function getDeployments(
     `/applications/${applicationId}/deployments`,
   )
 }
+
 
 export function createDeployment(
   applicationId: string,
@@ -78,6 +86,7 @@ export function createDeployment(
   )
 }
 
+
 export function getDeploymentEvents(
   deploymentId: string,
 ) {
@@ -85,6 +94,7 @@ export function getDeploymentEvents(
     `/deployments/${deploymentId}/events`,
   )
 }
+
 
 export function rollbackDeployment(
   deploymentId: string,

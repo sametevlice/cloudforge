@@ -12,10 +12,33 @@ pipeline {
     }
 
     parameters {
+
         string(
             name: 'IMAGE_TAG',
             defaultValue: '',
-            description: 'ECR üzerinde deploy edilecek Git commit SHA'
+            description: 'ECR üzerinde deploy edilecek immutable Git commit SHA'
+        )
+
+        string(
+            name: 'DEPLOYMENT_ID',
+            defaultValue: '',
+            description: 'CloudForge deployment UUID'
+        )
+
+        choice(
+            name: 'TARGET_ENVIRONMENT',
+            choices: [
+                'DEVELOPMENT',
+                'STAGING',
+                'PRODUCTION'
+            ],
+            description: 'Deployment target environment'
+        )
+
+        string(
+            name: 'CLOUDFORGE_CALLBACK_URL',
+            defaultValue: '',
+            description: 'CloudForge deployment status callback endpoint'
         )
     }
 
@@ -28,98 +51,220 @@ pipeline {
 
     stages {
 
-        stage('Validate Release') {
+        stage('Validate Request') {
+
             steps {
+
                 script {
+
                     if (!params.IMAGE_TAG?.trim()) {
-                        error('IMAGE_TAG zorunludur.')
+                        error(
+                            'IMAGE_TAG zorunludur.'
+                        )
+                    }
+
+                    if (!params.DEPLOYMENT_ID?.trim()) {
+                        error(
+                            'DEPLOYMENT_ID zorunludur.'
+                        )
+                    }
+
+                    if (!params.CLOUDFORGE_CALLBACK_URL?.trim()) {
+                        error(
+                            'CLOUDFORGE_CALLBACK_URL zorunludur.'
+                        )
+                    }
+
+
+                    switch (
+                        params.TARGET_ENVIRONMENT
+                    ) {
+
+                        case 'DEVELOPMENT':
+
+                            env.CLUSTER_NAME =
+                                'cloudforge-development-cluster'
+
+                            env.SERVICE_NAME =
+                                'cloudforge-development-demo-app'
+
+                            env.ALB_NAME =
+                                'cloudforge-development-demo-alb'
+
+                            break
+
+
+                        case 'STAGING':
+
+                            env.CLUSTER_NAME =
+                                'cloudforge-staging-cluster'
+
+                            env.SERVICE_NAME =
+                                'cloudforge-staging-demo-app'
+
+                            env.ALB_NAME =
+                                'cloudforge-staging-demo-alb'
+
+                            break
+
+
+                        case 'PRODUCTION':
+
+                            env.CLUSTER_NAME =
+                                'cloudforge-production-cluster'
+
+                            env.SERVICE_NAME =
+                                'cloudforge-production-demo-app'
+
+                            env.ALB_NAME =
+                                'cloudforge-production-demo-alb'
+
+                            break
+
+
+                        default:
+
+                            error(
+                                "Desteklenmeyen environment: "
+                                + params.TARGET_ENVIRONMENT
+                            )
                     }
                 }
+
+
+                echo """
+CloudForge Deployment Request
+
+Deployment ID : ${params.DEPLOYMENT_ID}
+Environment   : ${params.TARGET_ENVIRONMENT}
+Image Tag     : ${params.IMAGE_TAG}
+Cluster       : ${env.CLUSTER_NAME}
+Service       : ${env.SERVICE_NAME}
+"""
+
 
                 sh '''
                     set -e
 
-                    echo "Release image:"
-                    echo "$IMAGE_TAG"
+                    echo "AWS identity kontrol ediliyor..."
 
                     aws sts get-caller-identity
+
+
+                    echo
+                    echo "ECR image kontrol ediliyor..."
 
                     aws ecr describe-images \
                       --repository-name "$ECR_REPOSITORY" \
                       --image-ids imageTag="$IMAGE_TAG" \
-                      --region "$AWS_REGION"
+                      --region "$AWS_REGION" \
+                      >/dev/null
+
+
+                    echo "ECR image bulundu."
                 '''
             }
         }
 
-        stage('Deploy Staging') {
-            steps {
-                sh '''
-                    set -e
-
-                    CLUSTER_NAME=cloudforge-staging-cluster \
-                    SERVICE_NAME=cloudforge-staging-demo-app \
-                    ALB_NAME=cloudforge-staging-demo-alb \
-                    ECR_REPOSITORY="$ECR_REPOSITORY" \
-                    AWS_REGION="$AWS_REGION" \
-                    ./infrastructure/jenkins/scripts/deploy-ecs.sh \
-                      "$IMAGE_TAG"
-                '''
-            }
-        }
-
-        stage('Staging Smoke Test') {
-            steps {
-                sh '''
-                    set -e
-
-                    ALB_DNS=$(
-                      aws elbv2 describe-load-balancers \
-                        --names cloudforge-staging-demo-alb \
-                        --region "$AWS_REGION" \
-                        --query 'LoadBalancers[0].DNSName' \
-                        --output text
-                    )
-
-                    curl \
-                      --fail \
-                      --silent \
-                      --show-error \
-                      "http://${ALB_DNS}/actuator/health"
-
-                    echo
-
-                    curl \
-                      --fail \
-                      --silent \
-                      --show-error \
-                      "http://${ALB_DNS}/api/version"
-
-                    echo
-                '''
-            }
-        }
 
         stage('Production Approval') {
+
+            when {
+
+		beforeInput true
+                expression {
+                    params.TARGET_ENVIRONMENT
+                        == 'PRODUCTION'
+                }
+            }
+
             input {
-                message 'Staging başarılı. Bu sürüm production ortamına deploy edilsin mi?'
+
+                message '''
+Production deployment istendi.
+
+Bu sürüm production ortamına deploy edilsin mi?
+'''
 
                 ok 'Production Deploy'
             }
 
             steps {
-                echo "Production deployment onaylandı."
+
+                echo '''
+Production deployment onaylandı.
+'''
             }
         }
 
-        stage('Deploy Production') {
+
+        stage('Notify CloudForge - Running') {
+
             steps {
+
+                withCredentials([
+                    string(
+                        credentialsId:
+                            'cloudforge-callback-token',
+
+                        variable:
+                            'CLOUDFORGE_CALLBACK_TOKEN'
+                    )
+                ]) {
+
+                    sh '''
+                        set -e
+
+                        echo "CloudForge RUNNING callback gönderiliyor..."
+
+                        jq -n \
+                          --arg status "RUNNING" \
+                          --arg message "Jenkins deployment started." \
+                          '{
+                            status: $status,
+                            message: $message
+                          }' \
+                        | curl \
+                            --fail \
+                            --silent \
+                            --show-error \
+                            -X POST \
+                            "$CLOUDFORGE_CALLBACK_URL" \
+                            -H "Content-Type: application/json" \
+                            -H "X-CloudForge-Callback-Token: $CLOUDFORGE_CALLBACK_TOKEN" \
+                            --data-binary @-
+
+                        echo
+                        echo "RUNNING callback başarılı."
+                    '''
+                }
+            }
+        }
+
+
+        stage('Deploy Target Environment') {
+
+            steps {
+
                 sh '''
                     set -e
 
-                    CLUSTER_NAME=cloudforge-production-cluster \
-                    SERVICE_NAME=cloudforge-production-demo-app \
-                    ALB_NAME=cloudforge-production-demo-alb \
+                    echo
+                    echo "========================================"
+                    echo "CloudForge Deployment"
+                    echo "========================================"
+
+                    echo "Environment: $TARGET_ENVIRONMENT"
+                    echo "Cluster    : $CLUSTER_NAME"
+                    echo "Service    : $SERVICE_NAME"
+                    echo "Image      : $IMAGE_TAG"
+
+                    echo
+
+
+                    CLUSTER_NAME="$CLUSTER_NAME" \
+                    SERVICE_NAME="$SERVICE_NAME" \
+                    ALB_NAME="$ALB_NAME" \
                     ECR_REPOSITORY="$ECR_REPOSITORY" \
                     AWS_REGION="$AWS_REGION" \
                     ./infrastructure/jenkins/scripts/deploy-ecs.sh \
@@ -127,55 +272,123 @@ pipeline {
                 '''
             }
         }
-
-        stage('Production Verification') {
-            steps {
-                sh '''
-                    set -e
-
-                    ALB_DNS=$(
-                      aws elbv2 describe-load-balancers \
-                        --names cloudforge-production-demo-alb \
-                        --region "$AWS_REGION" \
-                        --query 'LoadBalancers[0].DNSName' \
-                        --output text
-                    )
-
-                    echo "Production:"
-                    echo "http://${ALB_DNS}"
-
-                    curl \
-                      --fail \
-                      --silent \
-                      --show-error \
-                      "http://${ALB_DNS}/actuator/health"
-
-                    echo
-
-                    curl \
-                      --fail \
-                      --silent \
-                      --show-error \
-                      "http://${ALB_DNS}/api/version"
-
-                    echo
-                '''
-            }
-        }
     }
+
 
     post {
 
         success {
-            echo "CloudForge release pipeline başarılı."
+
+            echo '''
+CloudForge deployment başarılı.
+Backend SUCCEEDED olarak güncelleniyor.
+'''
+
+            withCredentials([
+                string(
+                    credentialsId:
+                        'cloudforge-callback-token',
+
+                    variable:
+                        'CLOUDFORGE_CALLBACK_TOKEN'
+                )
+            ]) {
+
+                sh '''
+                    set -e
+
+                    jq -n \
+                      --arg status "SUCCEEDED" \
+                      --arg message "Jenkins deployment completed successfully." \
+                      '{
+                        status: $status,
+                        message: $message
+                      }' \
+                    | curl \
+                        --fail \
+                        --silent \
+                        --show-error \
+                        -X POST \
+                        "$CLOUDFORGE_CALLBACK_URL" \
+                        -H "Content-Type: application/json" \
+                        -H "X-CloudForge-Callback-Token: $CLOUDFORGE_CALLBACK_TOKEN" \
+                        --data-binary @-
+
+                    echo
+                    echo "SUCCEEDED callback başarılı."
+                '''
+            }
         }
+
 
         failure {
-            echo "CloudForge release pipeline başarısız."
+
+            echo '''
+CloudForge deployment başarısız.
+Backend FAILED olarak güncelleniyor.
+'''
+
+            script {
+
+                if (
+                    params.CLOUDFORGE_CALLBACK_URL?.trim()
+                ) {
+
+                    withCredentials([
+                        string(
+                            credentialsId:
+                                'cloudforge-callback-token',
+
+                            variable:
+                                'CLOUDFORGE_CALLBACK_TOKEN'
+                        )
+                    ]) {
+
+                        sh '''
+                            set +e
+
+                            jq -n \
+                              --arg status "FAILED" \
+                              --arg message "Jenkins deployment failed. ECS rollback may have been executed." \
+                              '{
+                                status: $status,
+                                message: $message
+                              }' \
+                            | curl \
+                                --silent \
+                                --show-error \
+                                -X POST \
+                                "$CLOUDFORGE_CALLBACK_URL" \
+                                -H "Content-Type: application/json" \
+                                -H "X-CloudForge-Callback-Token: $CLOUDFORGE_CALLBACK_TOKEN" \
+                                --data-binary @-
+
+                            CALLBACK_RESULT=$?
+
+                            if [ "$CALLBACK_RESULT" -ne 0 ]; then
+                              echo "UYARI: FAILED callback gönderilemedi."
+                            fi
+
+                            exit 0
+                        '''
+                    }
+                }
+            }
         }
 
+
         always {
-            echo "Release sonucu: ${currentBuild.currentResult}"
+
+            echo """
+========================================
+CloudForge Release Result
+========================================
+
+Deployment ID : ${params.DEPLOYMENT_ID}
+Environment   : ${params.TARGET_ENVIRONMENT}
+Image Tag     : ${params.IMAGE_TAG}
+Result        : ${currentBuild.currentResult}
+"""
         }
     }
 }

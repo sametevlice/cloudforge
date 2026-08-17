@@ -1,0 +1,85 @@
+services:
+
+  platform-db:
+    image: postgres:16-alpine
+
+    container_name: cloudforge-platform-db
+
+    environment:
+      POSTGRES_DB: cloudforge_platform
+      POSTGRES_USER: cloudforge
+      POSTGRES_PASSWORD: ${PLATFORM_DB_PASSWORD:-cloudforge}
+
+    volumes:
+      - cloudforge-platform-db-data:/var/lib/postgresql/data
+
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - pg_isready -U cloudforge -d cloudforge_platform
+
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+    networks:
+      - cloudforge-platform
+
+
+  platform-backend:
+    build:
+      context: ./apps/platform-backend
+
+    container_name: cloudforge-platform-backend
+
+    environment:
+      SERVER_PORT: 8090
+
+      DB_URL: jdbc:postgresql://platform-db:5432/cloudforge_platform
+      DB_USERNAME: cloudforge
+      DB_PASSWORD: ${PLATFORM_DB_PASSWORD:-cloudforge}
+
+      CLOUDFORGE_DEPLOYMENT_ORCHESTRATOR: ${CLOUDFORGE_DEPLOYMENT_ORCHESTRATOR:-mock}
+
+      JENKINS_BASE_URL: ${JENKINS_BASE_URL:-http://host.docker.internal:8081}
+      JENKINS_USERNAME: ${JENKINS_USERNAME:-}
+      JENKINS_API_TOKEN: ${JENKINS_API_TOKEN:-}
+      JENKINS_JOB_NAME: ${JENKINS_JOB_NAME:-cloudforge-release}
+
+      CLOUDFORGE_CALLBACK_TOKEN: ${CLOUDFORGE_CALLBACK_TOKEN:-local-cloudforge-callback}
+
+      CLOUDFORGE_CALLBACK_BASE_URL: ${CLOUDFORGE_CALLBACK_BASE_URL:-http://host.docker.internal:8090}
+
+    ports:
+      - "8090:8090"
+
+    depends_on:
+      platform-db:
+        condition: service_healthy
+
+    networks:
+      - cloudforge-platform
+
+
+  platform-frontend:
+    build:
+      context: ./apps/platform-frontend
+
+    container_name: cloudforge-platform-frontend
+
+    ports:
+      - "3000:80"
+
+    depends_on:
+      - platform-backend
+
+    networks:
+      - cloudforge-platform
+
+
+networks:
+  cloudforge-platform:
+
+
+volumes:
+  cloudforge-platform-db-data:

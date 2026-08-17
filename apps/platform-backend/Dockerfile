@@ -15,6 +15,8 @@ FROM eclipse-temurin:21-jre
 
 WORKDIR /app
 
+RUN rm -f /usr/bin/pebble
+
 RUN useradd \
     --system \
     --create-home \

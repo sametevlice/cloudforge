@@ -1,12 +1,14 @@
 import {
   useEffect,
   useState,
+  type FormEvent,
 } from 'react'
 
 import {
   createApplication,
   createDeployment,
   getApplications,
+  getDeploymentEvents,
   getDeployments,
   rollbackDeployment,
 } from './api/cloudforge'
@@ -15,11 +17,20 @@ import type {
   CloudApplication,
   Deployment,
   DeploymentEnvironment,
+  DeploymentEvent,
 } from './api/types'
 
 import './App.css'
 
+
 function App() {
+
+  /*
+   * =========================================================
+   * APPLICATION STATE
+   * =========================================================
+   */
+
   const [
     applications,
     setApplications,
@@ -30,15 +41,46 @@ function App() {
     setSelectedApplication,
   ] = useState<CloudApplication | null>(null)
 
+
+  /*
+   * =========================================================
+   * DEPLOYMENT STATE
+   * =========================================================
+   */
+
   const [
     deployments,
     setDeployments,
   ] = useState<Deployment[]>([])
 
+  /*
+   * AŞAMA 12
+   *
+   * Kullanıcının history içinden seçtiği deployment.
+   *
+   * Burada deployment objesinin tamamı yerine ID saklıyoruz.
+   * Çünkü polling sırasında deployment objesi yenilenebilir.
+   */
   const [
-    error,
-    setError,
+    selectedDeploymentId,
+    setSelectedDeploymentId,
   ] = useState<string | null>(null)
+
+
+  /*
+   * Seçilen deployment'ın timeline event'leri.
+   */
+  const [
+    deploymentEvents,
+    setDeploymentEvents,
+  ] = useState<DeploymentEvent[]>([])
+
+
+  /*
+   * =========================================================
+   * FORM STATE
+   * =========================================================
+   */
 
   const [
     name,
@@ -62,8 +104,43 @@ function App() {
     'DEVELOPMENT',
   )
 
+
+  /*
+   * =========================================================
+   * UI STATE
+   * =========================================================
+   */
+
+  const [
+    error,
+    setError,
+  ] = useState<string | null>(null)
+
+
+  /*
+   * ID'sini sakladığımız deployment'ın
+   * güncel halini deployment listesinden buluyoruz.
+   *
+   * Polling deployment listesini yenilediğinde
+   * bu değer de otomatik güncellenecek.
+   */
+  const selectedDeployment =
+    deployments.find(
+      deployment =>
+        deployment.id === selectedDeploymentId,
+    ) ?? null
+
+
+  /*
+   * =========================================================
+   * APPLICATION LOAD
+   * =========================================================
+   */
+
   async function loadApplications() {
+
     try {
+
       setError(null)
 
       const result =
@@ -71,6 +148,10 @@ function App() {
 
       setApplications(result)
 
+      /*
+       * Henüz application seçilmemişse
+       * ilk application otomatik seçilir.
+       */
       if (
         result.length > 0
         && selectedApplication === null
@@ -79,19 +160,31 @@ function App() {
           result[0],
         )
       }
+
     } catch (err) {
+
       setError(
         err instanceof Error
           ? err.message
-          : 'Application load failed.',
+          : 'Applications could not be loaded.',
       )
+
     }
   }
+
+
+  /*
+   * =========================================================
+   * DEPLOYMENT LOAD
+   * =========================================================
+   */
 
   async function loadDeployments(
     application: CloudApplication,
   ) {
+
     try {
+
       setError(null)
 
       const result =
@@ -100,35 +193,216 @@ function App() {
         )
 
       setDeployments(result)
+
     } catch (err) {
+
       setError(
         err instanceof Error
           ? err.message
-          : 'Deployment load failed.',
+          : 'Deployments could not be loaded.',
       )
+
     }
   }
 
+
+  /*
+   * =========================================================
+   * DEPLOYMENT EVENT LOAD
+   *
+   * AŞAMA 12
+   * =========================================================
+   */
+
+  async function loadDeploymentEvents(
+    deploymentId: string,
+  ) {
+
+    try {
+
+      setError(null)
+
+      const result =
+        await getDeploymentEvents(
+          deploymentId,
+        )
+
+      setDeploymentEvents(result)
+
+    } catch (err) {
+
+      setError(
+        err instanceof Error
+          ? err.message
+          : 'Deployment timeline could not be loaded.',
+      )
+
+    }
+  }
+
+
+  /*
+   * =========================================================
+   * SAYFA İLK AÇILDIĞINDA APPLICATION'LARI GETİR
+   * =========================================================
+   */
+
   useEffect(() => {
+
     void loadApplications()
+
   }, [])
 
+
+  /*
+   * =========================================================
+   * APPLICATION DEĞİŞTİĞİNDE DEPLOYMENT'LARI GETİR
+   * =========================================================
+   */
+
   useEffect(() => {
-    if (selectedApplication) {
-      void loadDeployments(
-        selectedApplication,
-      )
-    } else {
+
+    if (!selectedApplication) {
       setDeployments([])
+      setSelectedDeploymentId(null)
+      setDeploymentEvents([])
+      return
     }
+
+    setSelectedDeploymentId(null)
+    setDeploymentEvents([])
+
+    void loadDeployments(
+      selectedApplication,
+    )
+
   }, [selectedApplication])
 
+
+  /*
+   * =========================================================
+   * AŞAMA 12
+   *
+   * DEPLOYMENT SEÇİLDİĞİNDE TIMELINE'I GETİR
+   * =========================================================
+   */
+
+  useEffect(() => {
+
+    if (!selectedDeploymentId) {
+
+      setDeploymentEvents([])
+
+      return
+    }
+
+    void loadDeploymentEvents(
+      selectedDeploymentId,
+    )
+
+  }, [selectedDeploymentId])
+
+
+  /*
+   * =========================================================
+   * AŞAMA 13
+   *
+   * ACTIVE DEPLOYMENT VARSA 3 SANİYEDE BİR YENİLE
+   * =========================================================
+   */
+
+  const hasActiveDeployment =
+    deployments.some(
+      deployment =>
+        deployment.status === 'QUEUED'
+        || deployment.status === 'RUNNING',
+    )
+
+
+  useEffect(() => {
+
+    /*
+     * Application seçilmemişse polling yapma.
+     */
+    if (!selectedApplication) {
+      return
+    }
+
+    /*
+     * QUEUED veya RUNNING deployment yoksa
+     * polling'e gerek yok.
+     */
+    if (!hasActiveDeployment) {
+      return
+    }
+
+
+    /*
+     * 3 saniyede bir çalışacak timer.
+     */
+    const interval =
+      window.setInterval(
+        () => {
+
+          /*
+           * Deployment listesini tekrar backend'den al.
+           */
+          void loadDeployments(
+            selectedApplication,
+          )
+
+
+          /*
+           * Kullanıcı bir deployment timeline'ı
+           * görüntülüyorsa event'leri de yenile.
+           */
+          if (selectedDeploymentId) {
+
+            void loadDeploymentEvents(
+              selectedDeploymentId,
+            )
+
+          }
+
+        },
+        3000,
+      )
+
+
+    /*
+     * Component yeniden render edildiğinde
+     * veya polling artık gerekmediğinde
+     * eski timer'ı temizle.
+     */
+    return () => {
+
+      window.clearInterval(
+        interval,
+      )
+
+    }
+
+  }, [
+    selectedApplication,
+    selectedDeploymentId,
+    hasActiveDeployment,
+  ])
+
+
+  /*
+   * =========================================================
+   * APPLICATION CREATE
+   * =========================================================
+   */
+
   async function handleCreateApplication(
-    event: React.FormEvent<HTMLFormElement>,
+    event: FormEvent,
   ) {
+
     event.preventDefault()
 
     try {
+
       setError(null)
 
       const created =
@@ -143,21 +417,35 @@ function App() {
 
       await loadApplications()
 
+      /*
+       * Yeni application'ı otomatik seç.
+       */
       setSelectedApplication(
         created,
       )
+
     } catch (err) {
+
       setError(
         err instanceof Error
           ? err.message
           : 'Application creation failed.',
       )
+
     }
   }
 
+
+  /*
+   * =========================================================
+   * DEPLOYMENT CREATE
+   * =========================================================
+   */
+
   async function handleDeploy(
-    event: React.FormEvent<HTMLFormElement>,
+    event: FormEvent,
   ) {
+
     event.preventDefault()
 
     if (!selectedApplication) {
@@ -165,76 +453,156 @@ function App() {
     }
 
     try {
+
       setError(null)
 
-      await createDeployment(
-        selectedApplication.id,
-        {
-          environment,
-          imageTag,
-        },
-      )
+      const createdDeployment =
+        await createDeployment(
+          selectedApplication.id,
+          {
+            environment,
+            imageTag,
+          },
+        )
 
       setImageTag('')
 
+      /*
+       * Yeni oluşturulan deployment'ı
+       * timeline için otomatik seçiyoruz.
+       */
+      setSelectedDeploymentId(
+        createdDeployment.id,
+      )
+
+
+      /*
+       * Backend mock orchestrator çok hızlı olduğu için
+       * kısa bir bekleme ardından listeyi tekrar alıyoruz.
+       */
       await new Promise(
         resolve =>
-          setTimeout(
+          window.setTimeout(
             resolve,
-            1000,
+            500,
           ),
       )
 
       await loadDeployments(
         selectedApplication,
       )
+
+      await loadDeploymentEvents(
+        createdDeployment.id,
+      )
+
     } catch (err) {
+
       setError(
         err instanceof Error
           ? err.message
-          : 'Deployment failed.',
+          : 'Deployment creation failed.',
       )
+
     }
   }
+
+
+  /*
+   * =========================================================
+   * ROLLBACK
+   * =========================================================
+   */
 
   async function handleRollback(
     deploymentId: string,
   ) {
+
     if (!selectedApplication) {
       return
     }
 
     try {
+
       setError(null)
 
-      await rollbackDeployment(
-        deploymentId,
+      const rollback =
+        await rollbackDeployment(
+          deploymentId,
+        )
+
+      /*
+       * Yeni rollback deployment'ını
+       * timeline'da otomatik seç.
+       */
+      setSelectedDeploymentId(
+        rollback.id,
       )
+
 
       await new Promise(
         resolve =>
-          setTimeout(
+          window.setTimeout(
             resolve,
-            1000,
+            500,
           ),
       )
 
       await loadDeployments(
         selectedApplication,
       )
+
+      await loadDeploymentEvents(
+        rollback.id,
+      )
+
     } catch (err) {
+
       setError(
         err instanceof Error
           ? err.message
           : 'Rollback failed.',
       )
+
     }
   }
 
+
+  /*
+   * =========================================================
+   * STATUS CSS CLASS
+   * =========================================================
+   */
+
+  function statusClass(
+    status: Deployment['status'],
+  ) {
+
+    return (
+      'status '
+      + status.toLowerCase()
+    )
+  }
+
+
+  /*
+   * =========================================================
+   * UI
+   * =========================================================
+   */
+
   return (
+
     <main className="page">
+
+      {/* ============================================= */}
+      {/* HEADER                                        */}
+      {/* ============================================= */}
+
       <header className="hero">
+
         <div>
+
           <p className="eyebrow">
             SELF-SERVICE DELIVERY PLATFORM
           </p>
@@ -244,27 +612,44 @@ function App() {
           </h1>
 
           <p className="hero-description">
-            Applications, deployments
-            and rollback from one
-            control plane.
+            Applications, deployments,
+            deployment history and rollback
+            from one control plane.
           </p>
+
         </div>
 
-        <div className="hero-badge">
-          CONTROL PLANE
-        </div>
       </header>
 
+
+      {/* ============================================= */}
+      {/* ERROR                                         */}
+      {/* ============================================= */}
+
       {error && (
+
         <div className="error">
           {error}
         </div>
+
       )}
 
+
+      {/* ============================================= */}
+      {/* APPLICATION + DEPLOY                          */}
+      {/* ============================================= */}
+
       <section className="grid">
+
+
+        {/* APPLICATIONS */}
+
         <article className="panel">
+
           <div className="panel-header">
+
             <div>
+
               <p className="panel-label">
                 REGISTRY
               </p>
@@ -272,69 +657,71 @@ function App() {
               <h2>
                 Applications
               </h2>
+
             </div>
 
-            <span className="counter">
+            <span className="count">
               {applications.length}
             </span>
+
           </div>
+
 
           <form
             onSubmit={
               handleCreateApplication
             }
           >
-            <label>
-              Application name
 
-              <input
-                placeholder="todo-api"
-                value={name}
-                onChange={
-                  event =>
-                    setName(
-                      event.target.value,
-                    )
-                }
-                required
-              />
-            </label>
+            <input
+              placeholder="Application name"
+              value={name}
+              onChange={
+                event =>
+                  setName(
+                    event.target.value,
+                  )
+              }
+              required
+            />
 
-            <label>
-              GitHub repository
+            <input
+              placeholder="GitHub repository URL"
+              value={repositoryUrl}
+              onChange={
+                event =>
+                  setRepositoryUrl(
+                    event.target.value,
+                  )
+              }
+              required
+            />
 
-              <input
-                placeholder="https://github.com/user/repository"
-                value={
-                  repositoryUrl
-                }
-                onChange={
-                  event =>
-                    setRepositoryUrl(
-                      event.target.value,
-                    )
-                }
-                required
-              />
-            </label>
-
-            <button type="submit">
-              Add application
+            <button
+              className="primary-button"
+              type="submit"
+            >
+              Add Application
             </button>
+
           </form>
 
+
           <div className="application-list">
+
             {applications.length === 0 && (
-              <p className="empty-state">
-                No applications
-                registered yet.
+
+              <p className="empty">
+                No applications registered yet.
               </p>
+
             )}
+
 
             {applications.map(
               application => (
+
                 <button
-                  type="button"
                   className={
                     selectedApplication?.id
                       === application.id
@@ -348,34 +735,41 @@ function App() {
                     )
                   }
                 >
+
                   <div>
+
                     <strong>
                       {application.name}
                     </strong>
 
                     <small>
-                      {
-                        application
-                          .repositoryUrl
-                      }
+                      {application.repositoryUrl}
                     </small>
+
                   </div>
 
                   <span>
-                    {
-                      application
-                        .defaultBranch
-                    }
+                    {application.defaultBranch}
                   </span>
+
                 </button>
+
               ),
             )}
+
           </div>
+
         </article>
 
+
+        {/* DEPLOY */}
+
         <article className="panel">
+
           <div className="panel-header">
+
             <div>
+
               <p className="panel-label">
                 DELIVERY
               </p>
@@ -383,14 +777,24 @@ function App() {
               <h2>
                 Deploy
               </h2>
+
             </div>
+
           </div>
 
+
           {selectedApplication ? (
-            <>
+
+            <form
+              onSubmit={
+                handleDeploy
+              }
+            >
+
               <div className="selected-app">
+
                 <span>
-                  Selected application
+                  Selected Application
                 </span>
 
                 <strong>
@@ -399,178 +803,365 @@ function App() {
                       .name
                   }
                 </strong>
+
               </div>
 
-              <form
-                onSubmit={
-                  handleDeploy
-                }
+
+              <label>
+
+                Environment
+
+                <select
+                  value={environment}
+                  onChange={
+                    event =>
+                      setEnvironment(
+                        event.target
+                          .value as DeploymentEnvironment,
+                      )
+                  }
+                >
+
+                  <option value="DEVELOPMENT">
+                    Development
+                  </option>
+
+                  <option value="STAGING">
+                    Staging
+                  </option>
+
+                  <option value="PRODUCTION">
+                    Production
+                  </option>
+
+                </select>
+
+              </label>
+
+
+              <label>
+
+                Immutable Image Tag / Git SHA
+
+                <input
+                  placeholder="example: a1b2c3d4..."
+                  value={imageTag}
+                  onChange={
+                    event =>
+                      setImageTag(
+                        event.target.value,
+                      )
+                  }
+                  required
+                />
+
+              </label>
+
+
+              <button
+                className="primary-button"
+                type="submit"
               >
-                <label>
-                  Environment
+                Start Deployment
+              </button>
 
-                  <select
-                    value={
-                      environment
-                    }
-                    onChange={
-                      event =>
-                        setEnvironment(
-                          event.target
-                            .value as DeploymentEnvironment,
-                        )
-                    }
-                  >
-                    <option value="DEVELOPMENT">
-                      Development
-                    </option>
+            </form>
 
-                    <option value="STAGING">
-                      Staging
-                    </option>
-
-                    <option value="PRODUCTION">
-                      Production
-                    </option>
-                  </select>
-                </label>
-
-                <label>
-                  Image tag / Git SHA
-
-                  <input
-                    placeholder="f1a2b3c4..."
-                    value={
-                      imageTag
-                    }
-                    onChange={
-                      event =>
-                        setImageTag(
-                          event.target
-                            .value,
-                        )
-                    }
-                    required
-                  />
-                </label>
-
-                <button type="submit">
-                  Deploy application
-                </button>
-              </form>
-            </>
           ) : (
-            <p className="empty-state">
-              Select or create an
-              application first.
+
+            <p className="empty">
+              Select an application first.
             </p>
+
           )}
+
         </article>
+
       </section>
 
+
+      {/* ============================================= */}
+      {/* DEPLOYMENT HISTORY                            */}
+      {/* ============================================= */}
+
       <section className="panel">
+
         <div className="panel-header">
+
           <div>
+
             <p className="panel-label">
-              HISTORY
+              DELIVERY HISTORY
             </p>
 
             <h2>
               Deployment History
             </h2>
+
           </div>
 
-          <span className="counter">
+          <span className="count">
             {deployments.length}
           </span>
+
         </div>
 
-        {!selectedApplication && (
-          <p className="empty-state">
-            Select an application to
-            view deployments.
+
+        {deployments.length === 0 ? (
+
+          <p className="empty">
+            No deployments yet.
           </p>
-        )}
 
-        {selectedApplication
-          && deployments.length === 0
-          && (
-            <p className="empty-state">
-              No deployments for this
-              application yet.
-            </p>
-          )}
+        ) : (
 
-        <div className="deployment-list">
-          {deployments.map(
-            deployment => (
-              <article
-                className="deployment"
-                key={deployment.id}
-              >
-                <div className="deployment-info">
-                  <strong>
-                    {
-                      deployment
-                        .environment
-                    }
-                  </strong>
+          <div className="deployment-list">
 
-                  <p>
-                    {
-                      deployment
-                        .imageTag
-                    }
-                  </p>
+            {deployments.map(
+              deployment => (
 
-                  <small>
-                    {new Date(
-                      deployment
-                        .requestedAt,
-                    ).toLocaleString()}
-                  </small>
-
-                  {deployment
-                    .rollbackOfDeploymentId
-                    && (
-                      <small className="rollback-info">
-                        Rollback of{' '}
-                        {
-                          deployment
-                            .rollbackOfDeploymentId
-                        }
-                      </small>
-                    )}
-                </div>
-
-                <span
+                <article
                   className={
-                    `status status-${deployment.status.toLowerCase()}`
+                    selectedDeploymentId
+                      === deployment.id
+                      ? 'deployment selected'
+                      : 'deployment'
                   }
-                >
-                  {
-                    deployment
-                      .status
-                  }
-                </span>
-
-                <button
-                  type="button"
-                  className="secondary-button"
+                  key={deployment.id}
                   onClick={() =>
-                    void handleRollback(
+                    setSelectedDeploymentId(
                       deployment.id,
                     )
                   }
                 >
-                  Rollback
-                </button>
-              </article>
-            ),
-          )}
-        </div>
+
+                  <div className="deployment-main">
+
+                    <strong>
+                      {
+                        deployment
+                          .environment
+                      }
+                    </strong>
+
+                    <p>
+                      {
+                        deployment
+                          .imageTag
+                      }
+                    </p>
+
+                    <small>
+                      {new Date(
+                        deployment
+                          .requestedAt,
+                      ).toLocaleString()}
+                    </small>
+
+                  </div>
+
+
+                  <span
+                    className={
+                      statusClass(
+                        deployment.status,
+                      )
+                    }
+                  >
+                    {deployment.status}
+                  </span>
+
+
+                  <button
+                    className="secondary-button"
+                    onClick={
+                      event => {
+
+                        /*
+                         * Rollback butonuna basınca
+                         * deployment card click event'i
+                         * tetiklenmesin.
+                         */
+                        event.stopPropagation()
+
+                        void handleRollback(
+                          deployment.id,
+                        )
+                      }
+                    }
+                  >
+                    Rollback
+                  </button>
+
+                </article>
+
+              ),
+            )}
+
+          </div>
+
+        )}
+
       </section>
+
+
+      {/* ============================================= */}
+      {/* AŞAMA 12                                      */}
+      {/* DEPLOYMENT TIMELINE                           */}
+      {/* ============================================= */}
+
+      {selectedDeployment && (
+
+        <section className="panel">
+
+          <div className="panel-header">
+
+            <div>
+
+              <p className="panel-label">
+                EXECUTION TIMELINE
+              </p>
+
+              <h2>
+                Deployment Timeline
+              </h2>
+
+            </div>
+
+
+            <span
+              className={
+                statusClass(
+                  selectedDeployment.status,
+                )
+              }
+            >
+              {selectedDeployment.status}
+            </span>
+
+          </div>
+
+
+          <div className="timeline-summary">
+
+            <div>
+
+              <span>
+                Environment
+              </span>
+
+              <strong>
+                {
+                  selectedDeployment
+                    .environment
+                }
+              </strong>
+
+            </div>
+
+
+            <div>
+
+              <span>
+                Image
+              </span>
+
+              <strong>
+                {
+                  selectedDeployment
+                    .imageTag
+                }
+              </strong>
+
+            </div>
+
+
+            <div>
+
+              <span>
+                Deployment ID
+              </span>
+
+              <strong className="mono">
+                {
+                  selectedDeployment.id
+                }
+              </strong>
+
+            </div>
+
+          </div>
+
+
+          {deploymentEvents.length === 0 ? (
+
+            <p className="empty">
+              No deployment events available.
+            </p>
+
+          ) : (
+
+            <div className="timeline">
+
+              {deploymentEvents.map(
+                (event, index) => (
+
+                  <article
+                    className="timeline-event"
+                    key={event.id}
+                  >
+
+                    <div className="timeline-marker">
+
+                      <span>
+                        {index + 1}
+                      </span>
+
+                    </div>
+
+
+                    <div className="timeline-content">
+
+                      <div className="timeline-title">
+
+                        <strong>
+                          {event.eventType}
+                        </strong>
+
+                        <span>
+                          {new Date(
+                            event.createdAt,
+                          ).toLocaleString()}
+                        </span>
+
+                      </div>
+
+
+                      {event.message && (
+
+                        <p>
+                          {event.message}
+                        </p>
+
+                      )}
+
+                    </div>
+
+                  </article>
+
+                ),
+              )}
+
+            </div>
+
+          )}
+
+        </section>
+
+      )}
+
     </main>
+
   )
 }
 

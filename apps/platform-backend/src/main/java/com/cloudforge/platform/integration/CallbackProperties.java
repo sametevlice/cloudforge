@@ -6,6 +6,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
     prefix = "cloudforge.callback"
 )
 public record CallbackProperties(
-    String token
+    String token,
+    String baseUrl
 ) {
 }
