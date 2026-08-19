@@ -1,0 +1,127 @@
+name: Platform CI
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "apps/platform-backend/**"
+      - "apps/platform-frontend/**"
+      - "docker-compose.platform.yml"
+      - "scripts/platform-smoke-test.sh"
+      - "Makefile"
+      - ".github/workflows/platform-ci.yml"
+
+  push:
+    branches:
+      - main
+    paths:
+      - "apps/platform-backend/**"
+      - "apps/platform-frontend/**"
+      - "docker-compose.platform.yml"
+      - "scripts/platform-smoke-test.sh"
+      - "Makefile"
+      - ".github/workflows/platform-ci.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: platform-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+
+  backend-test:
+    name: Backend Test
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Set up Java 21
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+          cache-dependency-path: apps/platform-backend/pom.xml
+
+      - name: Test platform backend
+        run: |
+          mvn \
+            -f apps/platform-backend/pom.xml \
+            --batch-mode \
+            clean test
+
+      - name: Package platform backend
+        run: |
+          mvn \
+            -f apps/platform-backend/pom.xml \
+            --batch-mode \
+            -DskipTests \
+            package
+
+
+  frontend-build:
+    name: Frontend Build
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Set up Node.js 24
+        uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: apps/platform-frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        run: |
+          npm \
+            --prefix apps/platform-frontend \
+            ci
+
+      - name: Build platform frontend
+        run: |
+          npm \
+            --prefix apps/platform-frontend \
+            run build
+
+
+  docker-build:
+    name: Validate Docker Images
+
+    runs-on: ubuntu-latest
+
+    needs:
+      - backend-test
+      - frontend-build
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Build platform backend image
+        run: |
+          docker build \
+            -t cloudforge-platform-backend:ci \
+            apps/platform-backend
+
+      - name: Build platform frontend image
+        run: |
+          docker build \
+            -t cloudforge-platform-frontend:ci \
+            apps/platform-frontend
+
+      - name: Validate platform Compose file
+        run: |
+          docker compose \
+            -f docker-compose.platform.yml \
+            config \
+            --quiet
